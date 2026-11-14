@@ -67,8 +67,9 @@ class SafeFetcher:
         self._robots: dict[str, RobotFileParser | None] = {}
         self._last_call = 0.0
 
-    def _fetch(self, url: str, *, check_type: bool = True) -> tuple[int, bytes]:
+    def _fetch(self, url: str, *, check_type: bool = True, max_bytes: int | None = None) -> tuple[int, bytes]:
         parsed = urlsplit(url)
+        limit = self.max_bytes if max_bytes is None else max_bytes
         ips = public_addresses(parsed.hostname)
         # Connect to a vetted IP, use the original hostname for SNI and certificate validation.
         # No redirect following; DNS cannot change between validation and TCP connect.
@@ -102,8 +103,8 @@ class SafeFetcher:
                     raise SourceRejected(f"Unsupported content type: {ctype}")
             if response.status == 404:
                 return 404, b""
-            payload = response.read(self.max_bytes + 1, decode_content=True)
-            if len(payload) > self.max_bytes:
+            payload = response.read(limit + 1, decode_content=True)
+            if len(payload) > limit:
                 raise SourceRejected("Response exceeds byte limit")
             return response.status, payload
         except urllib3.exceptions.HTTPError as exc:
@@ -140,3 +141,20 @@ class SafeFetcher:
         if status != 200:
             raise SourceRejected(f"Page unavailable: {status}")
         return data
+
+    def get_resource(self, url: str, *, allowed_types: tuple[str, ...], max_bytes: int) -> bytes:
+        """Fetch a specifically authorized non-HTML resource, without redirects."""
+        safe = normalized_url(url, self.domains)
+        if not self.permitted(safe):
+            raise SourceRejected("robots.txt disallows resource access")
+        # _fetch enforces HTTPS, pinning, TLS and byte limit. The content-type
+        # check here is performed by caller-facing resource type restrictions.
+        status, data = self._fetch(safe, check_type=False, max_bytes=max_bytes)
+        if status != 200:
+            raise SourceRejected(f"Resource unavailable: {status}")
+        signatures = {'pdf': b'%PDF-', 'xml': b'<?xml'}
+        if 'pdf' in allowed_types and data.startswith(signatures['pdf']):
+            return data
+        if 'xml' in allowed_types and data.lstrip().startswith((b'<?xml', b'<urlset', b'<sitemapindex')):
+            return data
+        raise SourceRejected("Unexpected or unsupported resource signature")

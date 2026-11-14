@@ -1,0 +1,4 @@
+[
+  {"relevant_sources": ["grimoire-a"], "retrieved_sources": ["grimoire-a", "book-b"]},
+  {"relevant_sources": ["book-b"], "retrieved_sources": ["grimoire-a", "book-b"]}
+]

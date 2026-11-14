@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
+import subprocess
 
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_EPUB_BYTES = 20 * 1024 * 1024
@@ -68,7 +69,7 @@ def _check_epub_archive(path: Path):
         raise DocumentError("EPUB is not a valid ZIP container") from exc
 
 
-def read_document(path: Path) -> ExtractedDocument:
+def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
     path = path.resolve()
     size = path.stat().st_size
     if path.suffix.lower() == ".pdf":
@@ -87,6 +88,22 @@ def read_document(path: Path) -> ExtractedDocument:
             total = 0
             for i, page in enumerate(doc):
                 text = page.get_text("text").strip()
+                if not text and ocr:
+                    # Optional CPU-only OCR, one page at a time with strict bounds.
+                    if i >= 100:
+                        raise DocumentError("OCR limited to 100 pages")
+                    pix = page.get_pixmap(dpi=120, alpha=False)
+                    if len(pix.samples) > 35 * 1024 * 1024:
+                        raise DocumentError("OCR bitmap exceeds memory budget")
+                    try:
+                        result = subprocess.run(
+                            ["tesseract", "stdin", "stdout", "-l", "por+eng"],
+                            input=pix.tobytes("png"), capture_output=True,
+                            timeout=45, check=True,
+                        )
+                        text = result.stdout.decode("utf-8", "replace").strip()
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        raise DocumentError("Tesseract OCR failed or language pack missing") from exc
                 if not text:
                     continue
                 total += len(text)
@@ -130,5 +147,6 @@ def read_document(path: Path) -> ExtractedDocument:
 
 def format_document(doc: ExtractedDocument) -> str:
     # Do not embed private absolute filesystem paths in retrieved passages.
-    return (f"# {doc.title}\n\nAutor: {doc.author or 'não informado'}\n"
+    origin = f"Fonte original: {doc.source}\n" if doc.source.startswith("https://") else ""
+    return (f"# {doc.title}\n\n{origin}Autor: {doc.author or 'não informado'}\n"
             f"Formato: {Path(doc.source).suffix.lower().lstrip('.')}\n\n{doc.body}\n")
