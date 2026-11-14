@@ -10,6 +10,8 @@ import sys
 import trafilatura
 
 from .crawler import crawl
+from .sitemap import sitemap_urls
+from .remote import read_remote_pdf
 from .documents import DocumentError, file_paths, format_document, read_document
 from .service import ingest_page
 from .state import IngestState
@@ -23,11 +25,14 @@ def parse_args(argv=None):
     p.add_argument("--urls-file", type=Path)
     p.add_argument("--allow-domain", action="append", default=[])
     p.add_argument("--crawl", action="store_true", help="Follow allowed same-directory HTML links")
+    p.add_argument("--sitemap", action="append", default=[], help="Authorized sitemap XML URL (repeatable)")
+    p.add_argument("--remote-pdf", action="append", default=[], help="Explicit authorized PDF URL (repeatable)")
     p.add_argument("--max-depth", type=int, default=2)
     p.add_argument("--max-pages", type=int, default=25)
     p.add_argument("--file", type=Path, action="append", default=[])
     p.add_argument("--directory", type=Path)
     p.add_argument("--max-documents", type=int, default=50)
+    p.add_argument("--ocr", action="store_true", help="Use local Tesseract only for scanned PDF pages")
     p.add_argument("--knowledge-id", default=os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", ""))
     p.add_argument("--webui-url", default="http://127.0.0.1:3000")
     p.add_argument("--dry-run", action="store_true")
@@ -69,7 +74,14 @@ def run(argv=None):
     try:
         urls = list_urls(args)
         documents = file_paths(args.file, args.directory, args.max_documents)
-        if not urls and not documents:
+        if args.sitemap or args.remote_pdf:
+            if not args.allow_domain:
+                raise ValueError("--allow-domain required for remote resources")
+            for remote_url in args.sitemap + args.remote_pdf:
+                normalized_url(remote_url, set(args.allow_domain))
+        if args.sitemap and not 1 <= args.max_pages <= 100:
+            raise ValueError("Invalid sitemap max-pages")
+        if not urls and not documents and not args.sitemap and not args.remote_pdf:
             raise ValueError("Provide --url, --urls-file, --file, or --directory")
         if args.crawl and not urls:
             raise ValueError("--crawl requires an HTTPS seed")
@@ -85,7 +97,7 @@ def run(argv=None):
         print("Set OPEN_WEBUI_API_KEY and OPEN_WEBUI_KNOWLEDGE_ID", file=sys.stderr)
         return 2
 
-    fetcher = SafeFetcher(set(args.allow_domain)) if urls else None
+    fetcher = SafeFetcher(set(args.allow_domain)) if urls or args.sitemap or args.remote_pdf else None
     webui = None if args.dry_run else WebUI(args.webui_url, os.environ["OPEN_WEBUI_API_KEY"], args.knowledge_id)
     state = None if args.dry_run else IngestState(args.state)
     failed = 0
@@ -104,6 +116,12 @@ def run(argv=None):
                 yield url, None, exc
 
     try:
+        if args.sitemap:
+            try:
+                urls = list(dict.fromkeys(urls + sitemap_urls(fetcher, args.sitemap, max_urls=args.max_pages)))
+            except (SourceRejected, ValueError, OSError) as exc:
+                failed += 1
+                print(f"FAILED sitemap: {exc}", file=sys.stderr)
         if urls:
             sources = (crawl(fetcher, urls, args.max_pages, args.max_depth)
                        if args.crawl else explicit_pages())
@@ -117,9 +135,16 @@ def run(argv=None):
                 except (SourceRejected, ValueError, WebUIError, OSError) as exc:
                     failed += 1
                     print(f"FAILED web page: {exc}", file=sys.stderr)
+        for remote_url in args.remote_pdf:
+            try:
+                doc = read_remote_pdf(fetcher, remote_url)
+                process(doc.source, doc.title, doc.body, format_document(doc))
+            except (SourceRejected, DocumentError, ValueError, WebUIError, OSError) as exc:
+                failed += 1
+                print(f"FAILED remote PDF: {exc}", file=sys.stderr)
         for path in documents:
             try:
-                doc = read_document(path)
+                doc = read_document(path, ocr=args.ocr)
                 process(doc.source, doc.title, doc.body, format_document(doc))
             except (DocumentError, ValueError, WebUIError, OSError) as exc:
                 failed += 1

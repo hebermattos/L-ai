@@ -104,6 +104,18 @@ Substitua `example.org` por um domínio em que a coleta seja permitida. O `--dry
 
 Veja [P1: crawler e importação de documentos](docs/advanced-import.md).
 
+## Descoberta, atualização e avaliação (opcionais)
+
+- **Sitemap XML:** `python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run`
+- **PDF remoto explícito:** `python -m ingest.cli --remote-pdf https://example.org/book.pdf --allow-domain example.org --dry-run`
+- **OCR local:** `python -m ingest.cli --file ~/Livros/digitalizado.pdf --ocr --dry-run` (instale Tesseract e idiomas português/inglês)
+- **Agendamento:** execute a CLI com cron/systemd + `flock`, conforme [guia de agendamento](docs/knowledge-pipeline.md).
+- **Avaliação offline:** `python -m ingest.evaluate tests/fixtures/retrieval_cases.json`.
+
+As chamadas RAG continuam locais; URLs externas são processadas apenas quando explicitamente autorizadas. A ingestão recorrente compara hashes de conteúdo e não reindexa arquivos inalterados. **Não há requisição condicional ETag/Last-Modified nesta etapa.**
+
+Mais detalhes: [pipeline avançado de conhecimento](docs/knowledge-pipeline.md).
+
 ## Exemplos de consultas
 
 - "Compare os temas centrais do *Corpus Hermeticum* e da *Tábua de Esmeralda*."
