@@ -1,38 +1,39 @@
-# P0 — Confiabilidade de ingestão
+# Confiabilidade, recuperação de falhas e testes
 
-## O que foi corrigido
+O L-ai usa SQLite local em `biblioteca/.web-ingest.sqlite3`, com chave composta `(url, knowledge_id)`. Isso permite utilizar a mesma fonte em bases distintas. A migração do esquema legado é transacional; **faça backup do SQLite antes de atualizar**.
 
-- O SQLite usa `PRIMARY KEY (url, knowledge_id)`, permitindo a mesma URL em mais de uma base sem sobrescrever os IDs de arquivos.
-- A migração da tabela anterior ocorre automaticamente em transação. Faça um backup de `biblioteca/.web-ingest.sqlite3` antes da primeira execução.
-- Estados persistidos: `uploaded` (upload realizado, link pendente), `updating` (reindexação pendente), `ready` (confirmado). Reexecutar o mesmo comando retoma o processamento, sem repetir o upload quando seu ID já foi salvo.
-- Uma URL inalterada só é ignorada se seu arquivo ainda estiver associado à Knowledge Base.
-- Atualizações usam `POST /api/v1/files/{id}/data/content/update`, que nas versões atuais do Open WebUI reprocessa as bases vinculadas. O resultado é conferido com uma leitura `GET /api/v1/files/{id}/data/content` e com a listagem de arquivos da Knowledge Base.
-- Respostas de erro, divergências e falta de associação mantêm o estado pendente para nova tentativa.
+## Fluxo de estados
 
-## Testes
+- `uploaded`: arquivo enviado; processamento/associação à base ainda podem estar pendentes.
+- `updating`: atualização de conteúdo remoto pendente ou em validação.
+- `ready`: a API confirmou conteúdo/associação; **não comprova recuperação semântica**.
 
-Os testes unitários não exigem servidor, GPU ou modelos baixados:
+Reexecutar o mesmo comando pode retomar operações pendentes. Há riscos conhecidos: queda entre upload remoto e registro local pode deixar arquivo órfão; o estado não deve ser usado simultaneamente por duas instâncias. A validação de conteúdo usa endpoints da versão instalada do Open WebUI — comportamento pode mudar entre versões.
+
+## Testes isolados
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Para testar **contra Open WebUI real**, crie uma **base de teste descartável** e configure:
+O CI verifica o Compose, sintaxe Shell e testes Python. Os testes de API simulados **não iniciam** Ollama nem Open WebUI.
+
+## Teste real opcional (somente base descartável)
+
+No Open WebUI local, crie uma base vazia descartável e uma chave API com acesso. Execute no terminal onde a instância está disponível:
 
 ```bash
-export OPEN_WEBUI_API_KEY='...'
-export OPEN_WEBUI_KNOWLEDGE_ID='id-de-uma-base-descartavel'
-L_AI_INTEGRATION=1 python -m unittest tests.test_webui_integration -v
+export OPEN_WEBUI_API_KEY='SUA_CHAVE'
+export OPEN_WEBUI_KNOWLEDGE_ID='ID_DE_BASE_DESCARTAVEL'
+L_AI_INTEGRATION=1 python -m unittest discover -s tests -p 'test_webui_integration.py' -v
 ```
 
-Este teste envia e altera um arquivo na base de teste, mas **não o exclui**. Não use uma base de produção.
+O teste envia e altera um documento. **Não o remove automaticamente**; exclua-o depois pela interface. Não execute contra bases reais de produção.
 
-## Limitações conhecidas
+Para verificar o **RAG de ponta a ponta**, vincule a base ao chat, faça uma pergunta sobre uma frase exclusiva do documento de teste e compare com a resposta/citação. Repita após atualizar o conteúdo e confira que a passagem antiga deixou de ser recuperada. A CI não valida esse fluxo de recuperação.
 
-- O endpoint de leitura confirma conteúdo persistido e associação, mas **não garante matematicamente** que todos os vetores estejam disponíveis. Testes de busca e recall com documentos reais são recomendados antes de produção.
-- Se o processo terminar exatamente entre o sucesso do upload HTTP e a gravação local do ID, é possível criar um arquivo órfão. Reconciliação remota de órfãos fica para melhoria futura.
-- **Não execute duas instâncias de importação simultaneamente usando o mesmo banco de estado.** O controle atual cobre retomadas sequenciais.
-- O código mantém o fluxo legado de upload e associação para preservar compatibilidade. Alguns formatos de paginação da API podem variar conforme a versão do Open WebUI.
-- Evite usar imagens Docker `latest`/ `main` em produção; fixe versões testadas para atualizações previsíveis.
+## Diagnóstico
 
-Referência: https://docs.openwebui.com/features/workspace/knowledge/
+Se `docker compose ps` indicar serviço parado, consulte `docker compose logs --tail=100`. Se o upload falhar, confira chave, ID e versão da API. Se a consulta responder sem referências, verifique se a base está vinculada ao chat e teste a recuperação de um trecho literal. Em caso de diferenças de comportamento entre releases, fixe versões de imagens Docker testadas antes de mudar o código.
+
+Consulte [pipeline e avaliação](knowledge-pipeline.md) e [instalação](../README.md).
