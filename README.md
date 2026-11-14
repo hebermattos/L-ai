@@ -51,6 +51,30 @@ Recomendação inicial para a busca: fragmentos ~800 tokens, sobreposição ~120
 
 **Atenção:** RAG não treina o modelo; ele recupera passagens de documentos e as disponibiliza durante a resposta. Já um fine-tuning modifica pesos e não faz parte deste MVP.
 
+## Ingestão automática de páginas web (P0)
+
+É possível importar uma URL individual ou um `urls.txt` para a base RAG com coleta restrita a domínios autorizados, extração via Trafilatura, integração à API do Open WebUI e deduplicação por SHA-256.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-ingest.txt
+
+# Gere sua chave em Open WebUI > Settings > Account
+export OPEN_WEBUI_API_KEY='SUA_CHAVE'
+export OPEN_WEBUI_KNOWLEDGE_ID='ID_DA_SUA_BASE'
+
+# Primeiro teste sem indexar
+python -m ingest.cli --url https://example.org/artigo --allow-domain example.org --dry-run
+
+# Para importar URLs da sua lista
+python -m ingest.cli --urls-file urls.txt --allow-domain example.org
+```
+
+Substitua example.org por um site que autorize a coleta. O arquivo `urls.txt` deve ter uma URL por linha. **Não há crawling recursivo nesta versão.**
+
+Veja [configuração, controles de segurança e limitações](docs/web-ingestion.md). O processo depende de Python e conectividade de rede, mas a inferência do chat continua local.
+
 ## Exemplos de consultas
 
 - "Compare os temas centrais do *Corpus Hermeticum* e da *Tábua de Esmeralda*."
@@ -82,7 +106,7 @@ docker compose pull && docker compose up -d  # faça backup antes
 ├── .env.example
 ├── config/Modelfile
 ├── biblioteca/            # seus arquivos: ignorados pelo Git
-├── scripts/setup.sh
+├── ingest/               # coletor web e integração RAG\n├── requirements-ingest.txt\n├── docs/web-ingestion.md\n├── scripts/setup.sh
 ├── scripts/check.sh
 ├── tests/test_project.py
 └── .github/workflows/ci.yml
