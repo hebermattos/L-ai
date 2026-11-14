@@ -147,6 +147,6 @@ def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
 
 def format_document(doc: ExtractedDocument) -> str:
     # Do not embed private absolute filesystem paths in retrieved passages.
-    origin = f"Fonte original: {doc.source}\\n" if doc.source.startswith("https://") else ""
+    origin = f"Fonte original: {doc.source}\n" if doc.source.startswith("https://") else ""
     return (f"# {doc.title}\n\n{origin}Autor: {doc.author or 'não informado'}\n"
             f"Formato: {Path(doc.source).suffix.lower().lstrip('.')}\n\n{doc.body}\n")
