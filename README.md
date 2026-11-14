@@ -81,6 +81,29 @@ A importação web mantém estado local por **URL e base de conhecimento**, reto
 
 Veja [migração de SQLite, testes e limitações](docs/reliability.md). Faça backup de `biblioteca/.web-ingest.sqlite3` antes da primeira execução após atualizar o projeto.
 
+## P1 — Crawler e livros digitais
+
+O L-ai também pode explorar **links internos autorizados** de um site, com limite de profundidade e páginas, ou importar **PDFs com texto e EPUBs locais**. Não exige GPU, OCR ou serviços adicionais.
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-ingest.txt
+
+# Explorar apenas links do diretório inicial do site:
+python -m ingest.cli --url https://example.org/library/index \\
+  --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
+
+# Importar livros diretamente (sem --allow-domain):
+python -m ingest.cli --file ~/Livros/obra.pdf --file ~/Livros/obra.epub
+
+# Importar uma pasta:
+python -m ingest.cli --directory ~/Livros --max-documents 50
+```
+
+Substitua `example.org` por um domínio em que a coleta seja permitida. O `--dry-run` apenas extrai e mostra um resumo; para indexar é necessário configurar `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID` conforme a seção anterior.
+
+Veja [P1: crawler e importação de documentos](docs/advanced-import.md).
+
 ## Exemplos de consultas
 
 - "Compare os temas centrais do *Corpus Hermeticum* e da *Tábua de Esmeralda*."
