@@ -75,6 +75,12 @@ Substitua example.org por um site que autorize a coleta. O arquivo `urls.txt` de
 
 Veja [configuração, controles de segurança e limitações](docs/web-ingestion.md). O processo depende de Python e conectividade de rede, mas a inferência do chat continua local.
 
+## Confiabilidade da ingestão (P0)
+
+A importação web mantém estado local por **URL e base de conhecimento**, retoma uploads interrompidos, verifica vínculos dos arquivos com o Open WebUI e confirma a persistência de atualizações antes de finalizar cada operação.
+
+Veja [migração de SQLite, testes e limitações](docs/reliability.md). Faça backup de `biblioteca/.web-ingest.sqlite3` antes da primeira execução após atualizar o projeto.
+
 ## Exemplos de consultas
 
 - "Compare os temas centrais do *Corpus Hermeticum* e da *Tábua de Esmeralda*."
