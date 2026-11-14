@@ -1,0 +1,10 @@
+.env
+biblioteca/**
+!biblioteca/.gitkeep
+*.pdf
+*.docx
+*.epub
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

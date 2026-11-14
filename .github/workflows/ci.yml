@@ -1,0 +1,20 @@
+name: Validate local AI stack
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose
+        run: |
+          WEBUI_SECRET_KEY=ci-only-test-secret docker compose -f compose.yaml config --quiet
+      - name: Check Bash syntax
+        run: |
+          bash -n scripts/setup.sh
+          bash -n scripts/check.sh
+      - name: Check project tests
+        run: python3 -m unittest discover -s tests -v
