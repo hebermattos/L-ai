@@ -1,162 +1,116 @@
 # L-ai — Arcana
 
-Chat de IA **100% local para inferência** especializado no estudo de ocultismo, hermetismo, alquimia, cabala, história da magia e grimórios. Executa em **Linux, CPU e 16 GB de RAM**, com **Ollama + Qwen3 4B Instruct + Open WebUI**. O conhecimento é ampliado por **RAG**, sem precisar ajustar os pesos do modelo.
+Chat local de pesquisa sobre ocultismo, hermetismo, alquimia, cabala, grimórios e história do esoterismo. Usa **Ollama + Qwen3 4B Instruct + Open WebUI** e recuperação de documentos (**RAG**). Destinado a Linux com **CPU e 16 GB de RAM**, sem GPU obrigatória.
 
-> Os documentos são interpretados como fontes históricas, literárias ou de crenças; alegações sobrenaturais não são tratadas como evidência científica. O projeto não inclui livros ou bases protegidas por direitos autorais.
+O modelo não é treinado com os livros: o RAG extrai e indexa material autorizado para consulta no chat. Trate relatos sobrenaturais como crenças ou fontes históricas, não fatos científicos comprovados.
 
-## Pré-requisitos
+## Instalação rápida
 
-- Ubuntu/Debian com Docker Engine e plugin Docker Compose v2 instalados
-- CPU x86-64 ou ARM64, **16 GB RAM recomendados**, aproximadamente 10 GB livres inicialmente (mais espaço para documentos)
-- Internet **na primeira instalação** para baixar imagens e modelos
-- `openssl`, `bash`, `curl` opcionais para testes de saúde
-
-Instale o Docker via [documentação oficial](https://docs.docker.com/engine/install/ubuntu/). Para verificar: `docker compose version`.
-
-## Início rápido
+Pré-requisitos: Ubuntu/Debian, Docker Engine com Compose v2, Git e OpenSSL, acesso ao Docker e espaço livre para modelos e documentos. A primeira instalação baixa imagens e o modelo.
 
 ```bash
 git clone https://github.com/hebermattos/L-ai.git
 cd L-ai
 bash scripts/setup.sh
-```
-
-O script gera um segredo aleatório em `.env`, inicia os containers, baixa o modelo `qwen3:4b-instruct` (Q4_K_M) e cria o modelo especializado `arcana`. **Não execute com `sudo bash`**; se seu usuário não tem acesso ao Docker, ajuste as permissões seguindo a documentação oficial ou use `sudo docker compose` para os comandos manuais.
-
-Abra **http://localhost:3000**, cadastre o primeiro administrador local, selecione o modelo **arcana** e converse. O modelo pode responder com seu conhecimento prévio, mas **os livros só serão consultados depois que você os importar e vincular a uma base RAG**.
-
-### Instalação manual
-
-```bash
-cp .env.example .env
-# Edite .env e defina WEBUI_SECRET_KEY para um valor aleatório.
-docker compose up -d
-docker compose exec -T ollama ollama pull qwen3:4b-instruct
-docker compose exec -T ollama ollama create arcana -f /config/Modelfile
 docker compose ps
 ```
 
-Crie o segredo com: `openssl rand -hex 32`. Nunca publique o `.env`.
+Abra **http://localhost:3000**, crie o administrador local e escolha o modelo **arcana**. O script cria um segredo em `.env`, inicia Ollama/Open WebUI e baixa o Qwen. Não execute o script como `sudo bash`; configure o acesso ao Docker conforme a [documentação oficial](https://docs.docker.com/engine/install/linux-postinstall/).
 
-## Importar seu conhecimento (RAG)
+**Teste inicial:** peça ao modelo para explicar a diferença histórica entre hermetismo e alquimia. Isso testa apenas a inferência, não a recuperação RAG.
 
-1. Organize os documentos em `biblioteca/hermetismo/`, `biblioteca/grimorios/`, `biblioteca/cabala/` etc. Essa pasta é **local** e ignorada pelo Git. Você também pode manter os arquivos em qualquer pasta.
-2. No Open WebUI, entre em **Workspace → Knowledge → Create** e crie a base `Biblioteca de Ocultismo`.
-3. Importe documentos PDF **com texto selecionável**, TXT, Markdown ou outros formatos suportados pela sua versão do Open WebUI. A importação é **pela interface**; adicionar arquivos em `biblioteca/` não indexa automaticamente.
-4. Para PDF digitalizado como imagem, aplique OCR **antes** da importação; confira o resultado. Preserve metadados de título, autor, tradução, edição e páginas.
-5. No chat, selecione o modelo `arcana` e anexe a base de conhecimento pelo seletor `#`, ou configure em **Workspace → Models** um modelo personalizado com a base vinculada.
-6. Faça perguntas sobre os textos e confira as referências apresentadas. Se a consulta à base não ocorrer, revise as configurações de recuperação de conhecimento do Open WebUI.
+## Habilitar o RAG
 
-Recomendação inicial para a busca: fragmentos ~800 tokens, sobreposição ~120, 4 resultados, com teste de qualidade em perguntas reais. O mecanismo de fragmentação e as unidades variam por versão/configuração. A mudança de modelo de embeddings pode exigir **reindexação**. Em computadores com 16 GB, comece com o embedding padrão local antes de adicionar modelos maiores.
+1. No Open WebUI, entre em **Workspace → Knowledge** e crie uma base chamada `Biblioteca de Ocultismo`.
+2. Importe um pequeno PDF com texto selecionável ou TXT/Markdown pela interface.
+3. No chat com `arcana`, vincule essa base usando o seletor de conhecimento (em versões compatíveis, digite `#`) ou configure a base no modelo personalizado.
+4. Pergunte algo que só consta do documento; confira se a resposta indica a fonte correta. Uma resposta plausível sem referência **não comprova** que o RAG foi usado.
 
-**Atenção:** RAG não treina o modelo; ele recupera passagens de documentos e as disponibiliza durante a resposta. Já um fine-tuning modifica pesos e não faz parte deste MVP.
-
-## Ingestão automática de páginas web (P0)
-
-É possível importar uma URL individual ou um `urls.txt` para a base RAG com coleta restrita a domínios autorizados, extração via Trafilatura, integração à API do Open WebUI e deduplicação por SHA-256.
+Para ingestão automatizada via API, crie uma chave no Open WebUI (área de conta) e obtenha o ID da base. Em um terminal local:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-ingest.txt
-
-# Gere sua chave em Open WebUI > Settings > Account
 export OPEN_WEBUI_API_KEY='SUA_CHAVE'
-export OPEN_WEBUI_KNOWLEDGE_ID='ID_DA_SUA_BASE'
-
-# Primeiro teste sem indexar
-python -m ingest.cli --url https://example.org/artigo --allow-domain example.org --dry-run
-
-# Para importar URLs da sua lista
-python -m ingest.cli --urls-file urls.txt --allow-domain example.org
+export OPEN_WEBUI_KNOWLEDGE_ID='ID_DA_BASE'
 ```
 
-Substitua example.org por um site que autorize a coleta. O arquivo `urls.txt` deve ter uma URL por linha. **Não há crawling recursivo nesta versão.**
+Não adicione tokens a arquivos versionados. A instalação base do Docker não instala automaticamente as dependências Python de ingestão no host.
 
-Veja [configuração, controles de segurança e limitações](docs/web-ingestion.md). O processo depende de Python e conectividade de rede, mas a inferência do chat continua local.
+## Importar conteúdo
 
-## Confiabilidade da ingestão (P0)
-
-A importação web mantém estado local por **URL e base de conhecimento**, retoma uploads interrompidos, verifica vínculos dos arquivos com o Open WebUI e confirma a persistência de atualizações antes de finalizar cada operação.
-
-Veja [migração de SQLite, testes e limitações](docs/reliability.md). Faça backup de `biblioteca/.web-ingest.sqlite3` antes da primeira execução após atualizar o projeto.
-
-## P1 — Crawler e livros digitais
-
-O L-ai também pode explorar **links internos autorizados** de um site, com limite de profundidade e páginas, ou importar **PDFs com texto e EPUBs locais**. Não exige GPU, OCR ou serviços adicionais.
+**Páginas individuais** (uma URL de um domínio explicitamente autorizado):
 
 ```bash
-source .venv/bin/activate
-pip install -r requirements-ingest.txt
-
-# Explorar apenas links do diretório inicial do site:
-python -m ingest.cli --url https://example.org/library/index \\
-  --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
-
-# Importar livros diretamente (sem --allow-domain):
-python -m ingest.cli --file ~/Livros/obra.pdf --file ~/Livros/obra.epub
-
-# Importar uma pasta:
-python -m ingest.cli --directory ~/Livros --max-documents 50
+python -m ingest.cli --url https://example.org/artigo --allow-domain example.org --dry-run
 ```
 
-Substitua `example.org` por um domínio em que a coleta seja permitida. O `--dry-run` apenas extrai e mostra um resumo; para indexar é necessário configurar `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID` conforme a seção anterior.
+**Crawler recursivo controlado**, limitado ao host e ao diretório inicial:
 
-Veja [P1: crawler e importação de documentos](docs/advanced-import.md).
+```bash
+python -m ingest.cli --url https://example.org/library/index --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
+```
 
-## Descoberta, atualização e avaliação (opcionais)
+**Sitemap** e **PDF remoto** (endereços HTTPS autorizados, explícitos):
 
-- **Sitemap XML:** `python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run`
-- **PDF remoto explícito:** `python -m ingest.cli --remote-pdf https://example.org/book.pdf --allow-domain example.org --dry-run`
-- **OCR local:** `python -m ingest.cli --file ~/Livros/digitalizado.pdf --ocr --dry-run` (instale Tesseract e idiomas português/inglês)
-- **Agendamento:** execute a CLI com cron/systemd + `flock`, conforme [guia de agendamento](docs/knowledge-pipeline.md).
-- **Avaliação offline:** `python -m ingest.evaluate tests/fixtures/retrieval_cases.json`.
+```bash
+python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run
+python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain example.org --dry-run
+```
 
-As chamadas RAG continuam locais; URLs externas são processadas apenas quando explicitamente autorizadas. A ingestão recorrente compara hashes de conteúdo e não reindexa arquivos inalterados. **Não há requisição condicional ETag/Last-Modified nesta etapa.**
+**Livros locais** (PDF/EPUB) e **OCR opcional** de PDFs escaneados:
 
-Mais detalhes: [pipeline avançado de conhecimento](docs/knowledge-pipeline.md).
+```bash
+python -m ingest.cli --directory ~/Livros --max-documents 50 --dry-run
+python -m ingest.cli --file ~/Livros/grimorio.pdf --ocr --dry-run
+```
 
-## Exemplos de consultas
+Substitua `example.org` por um domínio que permita a coleta. `--dry-run` extrai e apresenta resultados sem enviar à base; para indexar, remova essa opção após configurar a chave e o ID. O OCR requer Tesseract e pacotes de idioma instalados à parte.
 
-- "Compare os temas centrais do *Corpus Hermeticum* e da *Tábua de Esmeralda*."
-- "Segundo as fontes importadas, quais diferenças existem entre *Ars Goetia* e *Ars Theurgia-Goetia*?"
-- "Como o conceito de correspondência aparece em diferentes obras? Cite autor e edição quando disponível."
-- "Quais afirmações são históricas e quais pertencem à tradição esotérica neste documento?"
+O scraping só aceita HTTPS, hosts expressamente autorizados, regras `robots.txt`, não segue redirecionamentos e limita profundidade/tamanho. **Não faz scraping de sites arbitrários ou JavaScript dinâmico.** PDF remoto exige URL fornecida explicitamente; o crawler não baixa automaticamente cada PDF encontrado.
 
-## Operação
+## Consultar e verificar
+
+No Open WebUI, escolha `arcana` e vincule a biblioteca importada. Perguntas de exemplo: “Quais diferenças a obra apresenta entre Ars Goetia e Ars Theurgia-Goetia?” ou “Qual passagem do documento menciona correspondências planetárias?”.
+
+Para testar upload, indexação e associação com uma **base descartável**, consulte [validação real do RAG](docs/reliability.md). Isso não substitui um teste de recuperação semântica no chat.
+
+## Documentação por assunto
+
+- [Coleta web e segurança](docs/web-ingestion.md) — URLs, sitemap, limites, permissão.
+- [Crawler e documentos locais](docs/advanced-import.md) — navegação, PDF, EPUB e OCR.
+- [Confiabilidade e testes](docs/reliability.md) — SQLite, atualização, recuperação de falhas.
+- [Pipeline e avaliação](docs/knowledge-pipeline.md) — agenda, metadados, métricas e busca híbrida.
+
+## Operação e limites
 
 ```bash
 docker compose ps
 docker compose logs --tail=100
 docker compose stop
 docker compose start
-docker compose pull && docker compose up -d  # faça backup antes
 ```
 
-- **Chat:** http://127.0.0.1:3000; a porta está ligada apenas ao loopback.
-- **Ollama:** acessível **somente na rede interna do Docker**, não exposto ao host.
-- **Dados persistentes:** volumes Docker `ollama_data` e `open_webui_data`. Use backups antes de atualizar e **não execute `docker compose down -v`**.
-- **Privacidade:** após os downloads, inferência e busca podem operar localmente, mas recursos opcionais de rede, atualizações e integrações externas devem permanecer desligados se precisar de isolamento estrito. Sem garantia de air gap por padrão.
-- **Hardware:** o Qwen3 4B quantizado ocupa ~2,5 GB em disco para o modelo; memória total inclui KV cache, Open WebUI e embeddings. O desempenho depende da CPU.
+O chat fica em `127.0.0.1:3000`; Ollama permanece na rede interna Docker. Os volumes `ollama_data` e `open_webui_data` guardam modelos e dados. Faça backup antes de atualizar; **não use `docker compose down -v`** se quiser preservá-los. Não exponha a API ou o chat à internet sem controles adicionais. A coleta de sites usa rede externa; a inferência local não exige API paga.
 
-## Estrutura
+Atualização: `docker compose pull && docker compose up -d`, preferencialmente com versões fixadas e backup. O desempenho depende da CPU; OCR e indexação de grandes bibliotecas podem ser lentos.
+
+## Estrutura resumida
 
 ```text
 .
 ├── compose.yaml
 ├── .env.example
 ├── config/Modelfile
-├── biblioteca/            # seus arquivos: ignorados pelo Git
-├── ingest/               # coletor web e integração RAG\n├── requirements-ingest.txt\n├── docs/web-ingestion.md\n├── scripts/setup.sh
+├── biblioteca/                 # conteúdo e estado local, ignorados pelo Git
+├── ingest/                     # CLI, crawler, extratores e integração Open WebUI
+├── requirements-ingest.txt
+├── docs/                       # guias de uso
+├── scripts/setup.sh
 ├── scripts/check.sh
-├── tests/test_project.py
+├── tests/
 └── .github/workflows/ci.yml
 ```
 
-## Documentação externa
-
-- [Ollama Qwen3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct)
-- [Open WebUI](https://docs.openwebui.com/)
-- [Docker Engine](https://docs.docker.com/engine/install/ubuntu/)
-
-O modelo e as imagens são obtidos de seus distribuidores; confira as licenças e versões antes de usar em ambientes regulados.
+Referências: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI](https://docs.openwebui.com/) e [Docker](https://docs.docker.com/engine/install/ubuntu/).

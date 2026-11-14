@@ -1,66 +1,44 @@
-# Web scraping para a base RAG
+# Coleta web para o RAG
 
-Este módulo coleta **apenas páginas HTTPS explicitamente escolhidas**, extrai texto principal via Trafilatura e faz upload para **Knowledge** do Open WebUI, aguardando o processamento antes de vincular o arquivo. Não faz crawling nem descoberta automática de links (P1).
+Este guia descreve **recursos atuais**. A CLI oferece URLs individuais, listas `urls.txt`, crawler recursivo autorizado, descoberta por sitemap e PDFs remotos fornecidos explicitamente. Extração HTML usa Trafilatura; resultados podem ser enviados à Knowledge Base do Open WebUI.
 
-## Configuração
+## Pré-requisitos
 
-```bash
-cd L-ai
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-ingest.txt
-```
-
-1. No Open WebUI, crie uma base em **Workspace → Knowledge** e copie seu ID da URL ou da API.
-2. Crie uma **API Key** em **Settings → Account**.
-3. Exporte localmente, sem colocar tokens nos arquivos do Git:
-
-```bash
-export OPEN_WEBUI_API_KEY='sua-chave'
-export OPEN_WEBUI_KNOWLEDGE_ID='id-da-base'
-```
-
-Defina os endereços em `urls.txt`, um por linha:
+Instale dependências e configure a API conforme o [README](../README.md#habilitar-o-rag). Crie `urls.txt` com uma URL HTTPS por linha e comentários iniciados por `#`:
 
 ```text
-# Lista de páginas para pesquisa; substitua pelos domínios com permissão
-https://example.org/artigo1
-https://example.org/artigo2
+https://example.org/artigo-a
+https://example.org/artigo-b
 ```
-
-Primeiro teste somente a extração, sem enviar nada ao Open WebUI:
 
 ```bash
 python -m ingest.cli --urls-file urls.txt --allow-domain example.org --dry-run
+python -m ingest.cli --url https://example.org/artigo-a --allow-domain example.org --dry-run
 ```
 
-Depois execute a importação:
+Para coletar e indexar, remova `--dry-run` depois de definir `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID`. URLs são deduplicadas; páginas alteradas são reprocessadas usando hash do texto. O estado fica em `biblioteca/.web-ingest.sqlite3`.
+
+## Descoberta de páginas
 
 ```bash
-python -m ingest.cli --urls-file urls.txt --allow-domain example.org
+python -m ingest.cli --url https://example.org/library/index --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
+python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run
 ```
 
-Também é possível passar `--url https://example.org/artigo1` várias vezes; para vários hosts, repita `--allow-domain HOST`. A lista de domínios autorizados é **obrigatória** e cada subdomínio precisa ser autorizado separadamente.
+O crawler só segue links internos dentro do diretório da URL inicial, com profundidade de 0 a 3 e até 100 páginas tentadas por execução. A busca por sitemap aceita índices XML limitados, não segue links arbitrários e também requer um domínio autorizado. `--crawl` sozinho exige uma URL inicial `--url` ou `--urls-file`; usar apenas `--sitemap` não habilita crawling adicional.
 
-O estado de hashes e IDs é mantido em `biblioteca/.web-ingest.sqlite3` (não versionado). URLs com conteúdo idêntico não são importadas duas vezes; quando uma URL muda, o documento já associado a ela tem o texto indexado atualizado via API. Não exclua o arquivo de estado sem planejar a reconciliação com o Open WebUI, pois isso pode provocar reimportações.
+A opção `--remote-pdf` importa **somente o PDF explicitamente indicado**, não todos os PDFs linkados pelo site:
 
-## Segurança e limites
+```bash
+python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain example.org --dry-run
+```
 
-- Somente **HTTPS**, porta 443 e **hosts explicitamente permitidos**; nenhuma URL com credenciais embutidas.
-- Resolução DNS validada antes de cada conexão. Se houver qualquer IP privado, loopback ou não global, a conexão é rejeitada; conexão e TLS usam um **IP fixado**, com SNI e verificação de certificado do domínio original.
-- **Sem seguir redirecionamentos**, inclusive redirecionamentos de `robots.txt`.
-- Respeita `robots.txt`; falha fechada se indisponível (HTTP 404 significa regras ausentes).
-- Máximo de 2 MiB de conteúdo por resposta, 25 URLs por execução por padrão, 100 máximo configurável; pausa de pelo menos dois segundos entre requisições do coletor.
-- Interface administrativa Open WebUI disponível somente em localhost; a integração não envia a chave para os sites externos.
-- Sem execução de scripts das páginas, sem Playwright e sem acessos recursivos.
-- Confira direitos autorais, licenças, termos de uso e autorização de acesso antes da coleta. `robots.txt` não é licença de reprodução.
+## Proteções e limites
 
-## Limitações de P0
+- **HTTPS/443 e allowlist exata:** o host da URL precisa corresponder ao parâmetro `--allow-domain`; subdomínios exigem autorização separada.
+- **Sem redirecionamentos:** forneça a URL final explicitamente; resoluções de IP não globais são recusadas e o TLS confere o nome do host.
+- **Robots e ritmo:** o coletor consulta `robots.txt`, não ignora bloqueios e usa pausas entre requisições.
+- **Limites de volume:** HTML até 2 MiB, PDFs remotos até 30 MiB, lista de URLs até 100 entradas; crawler até 100 páginas, profundidade máxima 3.
+- **Não inclui:** login em sites, execução JavaScript, `sitemap.xml.gz`, descoberta automática de PDFs ou contorno de bloqueios.
 
-- Apenas páginas com HTML ou texto sem autenticação. Não há importação automática de PDF remoto, JavaScript dinâmico, páginas paginadas ou descoberta recursiva.
-- A verificação de `robots.txt` depende da disponibilidade do site. Páginas que impedem automação serão ignoradas.
-- O banco de estado é local; alterações feitas diretamente no Open WebUI podem exigir reconciliação manual.
-- A atualização de conteúdo depende da versão da API do Open WebUI.
-- Para ambiente com alta exigência de segurança, execute o coletor em container ou VM isolada e restrinja também o tráfego de saída no firewall.
-
-**Referência:** [API de arquivos e Knowledge do Open WebUI](https://docs.openwebui.com/reference/api-endpoints/).
+Respeite licenças, autorização e termos de uso. `robots.txt` não equivale a licença de reprodução. `example.org` é apenas ilustrativo: substitua por fonte autorizada. Consulte [documentos e OCR](advanced-import.md) e [detalhes de confiabilidade](reliability.md).
