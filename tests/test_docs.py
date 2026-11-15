@@ -48,8 +48,8 @@ class DocumentationTests(unittest.TestCase):
 
     def test_no_old_feature_contradictions(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertNotIn("Não há crawling recursivo", readme)
-        self.assertNotIn("Não há OCR nesta etapa", readme)
+        self.assertNotIn("Recursive crawling is not available", readme)
+        self.assertNotIn("OCR is not available", readme)
         self.assertIn("--crawl", readme)
         self.assertIn("--ocr", readme)
         self.assertIn("--sitemap", readme)

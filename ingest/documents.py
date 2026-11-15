@@ -109,7 +109,7 @@ def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
                 total += len(text)
                 if total > MAX_TEXT_CHARS:
                     raise DocumentError("PDF extracted text is too large")
-                blocks.append(f"## Página {i+1}\n\n{text}")
+                blocks.append(f"## Page {i+1}\n\n{text}")
             body = "\n\n".join(blocks)
     elif path.suffix.lower() == ".epub":
         if size > MAX_EPUB_BYTES:
@@ -141,12 +141,12 @@ def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
     else:
         raise DocumentError("Unsupported document format")
     if len(body.strip()) < 100:
-        raise DocumentError("No substantial text; scanned PDFs require OCR (future P1)")
+        raise DocumentError("No substantial text; scanned PDFs require the --ocr option")
     return ExtractedDocument(source=path.as_uri(), title=title, author=author, body=body)
 
 
 def format_document(doc: ExtractedDocument) -> str:
     # Do not embed private absolute filesystem paths in retrieved passages.
-    origin = f"Fonte original: {doc.source}\n" if doc.source.startswith("https://") else ""
-    return (f"# {doc.title}\n\n{origin}Autor: {doc.author or 'não informado'}\n"
-            f"Formato: {Path(doc.source).suffix.lower().lstrip('.')}\n\n{doc.body}\n")
+    origin = f"Original source: {doc.source}\n" if doc.source.startswith("https://") else ""
+    return (f"# {doc.title}\n\n{origin}Author: {doc.author or 'unknown'}\n"
+            f"Format: {Path(doc.source).suffix.lower().lstrip('.')}\n\n{doc.body}\n")

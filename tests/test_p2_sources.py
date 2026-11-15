@@ -40,7 +40,7 @@ class RemoteTests(unittest.TestCase):
         f=MagicMock(domains={"example.org"})
         f.get_resource.return_value=data
         doc=read_remote_pdf(f,"https://example.org/library/text.pdf")
-        self.assertIn("Página 1",doc.body)
+        self.assertIn("Page 1",doc.body)
         self.assertEqual(doc.source,"https://example.org/library/text.pdf")
 
 class MetricsTests(unittest.TestCase):

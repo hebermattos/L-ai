@@ -1,14 +1,14 @@
-# Reliability, recovery and tests
+# Reliability, failure recovery, and testing
 
-L-ai stores local ingestion state in SQLite at `biblioteca/.web-ingest.sqlite3`, keyed by `(url, knowledge_id)`. This supports reusing a source across separate knowledge bases. Legacy-schema migration is transactional; **back up SQLite before upgrading**.
+L-ai maintains local SQLite state in `biblioteca/.web-ingest.sqlite3`, keyed by `(url, knowledge_id)`. The same source can therefore be used across multiple knowledge bases. Legacy schema migration is transactional; **back up SQLite before upgrading**.
 
-## State transitions
+## Ingestion states
 
-- `uploaded`: file uploaded, but processing or knowledge-base association may still be pending.
-- `updating`: a remote content update is pending or under verification.
-- `ready`: the API confirmed content and association; this **does not prove semantic retrieval**.
+- `uploaded`: the file was uploaded, but processing or knowledge-base association may be pending.
+- `updating`: a remote-content update is pending or being verified.
+- `ready`: the API confirmed content and association; **this does not prove semantic retrieval**.
 
-Repeating the command may resume pending work. Known risks: crashes between remote upload and local state persistence may leave an orphaned file; never use the same state database concurrently from two processes. Content validation depends on the API endpoints of the installed Open WebUI version, which may change.
+Rerunning the same command can resume pending operations. Known risks: a crash after remote upload but before local state persistence can leave an orphaned file; do not share the state database across concurrent processes. Content verification depends on the installed Open WebUI API version and may change between releases.
 
 ## Isolated tests
 
@@ -16,11 +16,11 @@ Repeating the command may resume pending work. Known risks: crashes between remo
 python -m unittest discover -s tests -v
 ```
 
-CI checks Docker Compose configuration, shell syntax and Python tests. Mocked API tests **do not launch** Ollama or Open WebUI.
+CI checks Compose configuration, shell syntax, and Python tests. Mocked API tests **do not launch** Ollama or Open WebUI.
 
 ## Optional live integration test (disposable knowledge base only)
 
-Create an empty, disposable knowledge base and an authorized API key in your local Open WebUI instance:
+Create an empty, disposable knowledge base and an API key with access in your local Open WebUI. Run from a terminal that can reach the instance:
 
 ```bash
 export OPEN_WEBUI_API_KEY='YOUR_API_KEY'
@@ -28,12 +28,12 @@ export OPEN_WEBUI_KNOWLEDGE_ID='DISPOSABLE_KNOWLEDGE_BASE_ID'
 L_AI_INTEGRATION=1 python -m unittest discover -s tests -p 'test_webui_integration.py' -v
 ```
 
-This test uploads and updates a document. **It does not delete it automatically**; delete it in the UI afterward. Do not target a production knowledge base.
+The test uploads and updates a document. **It does not automatically delete the document**; remove it afterward through the UI. Never run this test against a production knowledge base.
 
-For an **end-to-end RAG test**, attach the knowledge base to a chat, ask about a unique phrase in the test document, and inspect the answer and citations. Repeat after updating the document and confirm the old passage is no longer retrieved. CI does not cover this semantic retrieval flow.
+For an **end-to-end RAG test**, attach the base to the chat, ask about a unique phrase in the test document, and check the response and citation. Repeat after updating the content and confirm the old passage is no longer retrieved. CI does not validate this semantic retrieval flow.
 
 ## Troubleshooting
 
-If `docker compose ps` reports a stopped service, inspect `docker compose logs --tail=100`. For upload failures, check the API key, knowledge-base ID, and API version. For answers with no citations, verify the chat's knowledge-base association and try an exact known passage. Pin tested Docker image versions before making code changes for API differences between releases.
+If `docker compose ps` reports a stopped service, check `docker compose logs --tail=100`. If upload fails, verify the API key, knowledge-base ID, and API version. If answers lack citations, confirm that the base is attached to the chat and test retrieval of an exact passage. When releases behave differently, pin tested Docker image versions before modifying the code.
 
-See [pipeline and evaluation](knowledge-pipeline.md) and [setup](../README.md).
+See [knowledge pipeline](knowledge-pipeline.md) and [installation](../README.md).

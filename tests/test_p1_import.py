@@ -60,7 +60,7 @@ class DocumentTests(unittest.TestCase):
         pdf.close()
         doc = read_document(path)
         self.assertEqual(doc.title, "Technical Notes")
-        self.assertIn("Página 1", doc.body)
+        self.assertIn("Page 1", doc.body)
         self.assertIn("Researcher", format_document(doc))
 
     def test_real_epub(self):
