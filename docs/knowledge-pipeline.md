@@ -1,43 +1,43 @@
-# Pipeline de conhecimento e avaliação
+# Knowledge pipeline and evaluation
 
-Guia operacional complementar ao [README](../README.md). Nenhuma funcionalidade abaixo requer GPU; para CPU com 16 GB, limite simultaneidade, tamanho dos lotes e OCR.
+This operations guide complements the [README](../README.md). No workflow below requires a GPU. For 16 GB RAM and CPU-only systems, keep concurrency, batch sizes and OCR usage bounded.
 
-## Passo a passo
+## Workflow
 
-1. **Coletar:** URLs, crawling autorizado, sitemap ou PDFs/EPUBs. Faça `--dry-run` antes da indexação. Veja [coleta web](web-ingestion.md) e [documentos](advanced-import.md).
-2. **Extrair e normalizar:** Trafilatura (HTML), PyMuPDF (PDF), EbookLib (EPUB), Tesseract opcional (OCR).
-3. **Indexar:** configure `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID`; remova `--dry-run` para carregar na base Knowledge.
-4. **Recuperar:** vincule a base ao modelo/chat `lai` e faça perguntas específicas. **Indexação concluída não prova que a resposta usou os documentos.**
-5. **Avaliar:** confira fonte, fidelidade e busca para perguntas cuja resposta está documentada.
+1. **Collect:** authorized URLs, crawler pages, sitemaps, PDFs or EPUBs. Run `--dry-run` before indexing. See [web ingestion](web-ingestion.md) and [documents](advanced-import.md).
+2. **Extract and normalize:** Trafilatura (HTML), PyMuPDF (PDF), EbookLib (EPUB), and optionally Tesseract (OCR).
+3. **Index:** set `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID`; remove `--dry-run` to upload to Open WebUI Knowledge.
+4. **Retrieve:** attach the knowledge base to the `lai` model/chat and ask source-specific questions. **Successful indexing does not prove the answer used retrieved content.**
+5. **Evaluate:** verify attribution, faithfulness and retrieval against questions with documented answers.
 
-## Metadados e proveniência
+## Metadata and provenance
 
-Páginas HTML guardam título, URL e data de coleta. PDFs preservam título/autor quando disponíveis e o marcador por página; EPUB preserva título/autor quando declarados. Não invente edição, tradutor, ano ou número de página ausentes. Para pesquisa comparativa, catalogue esses campos manualmente na própria fonte ou em catálogo separado.
+HTML pages retain the title, URL and collection date. PDFs retain title/author when available and page markers; EPUB retains declared title/author metadata. Do not invent editions, translators, years or page numbers. For bibliographic comparison, maintain any missing information in the source or a separate catalog.
 
-## Atualização incremental
+## Incremental updates
 
-Nova execução faz download do conteúdo permitido, extrai o texto e compara SHA-256. Documentos sem alteração de conteúdo evitam reindexação; **a coleta ainda gera tráfego HTTP** (não há suporte a ETag/Last-Modified). Em caso de erro, verifique [retomada](reliability.md).
+Each run downloads allowed content, extracts text, and compares SHA-256 content hashes. Unchanged documents avoid reindexing; **requests still generate HTTP traffic** (no ETag/Last-Modified support). See [recovery](reliability.md) if a run fails.
 
-## Agendamento opcional
+## Optional scheduling
 
-Nenhum agendamento é instalado por padrão. Para usar cron, configure as credenciais num ambiente seguro do usuário e execute uma única instância por vez com `flock`. Exemplo diário às 03:00, substituindo caminhos e domínio:
+No schedule is installed by default. For cron, supply credentials through a private user/service environment and use `flock` to avoid concurrent runs. Example: daily at 03:00; replace paths and allowed domain:
 
 ```cron
-0 3 * * * cd /home/USUARIO/L-ai && /usr/bin/flock -n /tmp/lai-ingest.lock /home/USUARIO/L-ai/.venv/bin/python -m ingest.cli --urls-file urls.txt --allow-domain example.org >> /home/USUARIO/lai-ingest.log 2>&1
+0 3 * * * cd /home/USER/L-ai && /usr/bin/flock -n /tmp/lai-ingest.lock /home/USER/L-ai/.venv/bin/python -m ingest.cli --urls-file urls.txt --allow-domain example.org >> /home/USER/lai-ingest.log 2>&1
 ```
 
-O cron normalmente não herda as variáveis do seu shell; forneça `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID` por configuração privada do serviço/usuário, sem colocá-las no Git, no cron público ou nos argumentos da CLI. O `flock` evita importações simultâneas no mesmo banco de estado.
+Cron does not normally inherit your shell variables. Provide `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID` securely, not in Git, public cron definitions or CLI arguments. `flock` protects the local state database from competing ingestion processes.
 
-## Métricas de recuperação
+## Retrieval metrics
 
 ```bash
 python -m ingest.evaluate tests/fixtures/retrieval_cases.json
 ```
 
-O JSON contém `relevant_sources` e `retrieved_sources`. O avaliador computa `hit_at_k` e MRR usando fontes rotuladas. A fixture é **sintética**, útil apenas para demonstrar o formato; não comprova qualidade do modelo ou da base real. Para comparar métodos de recuperação, substitua pelos resultados efetivos registrados no Open WebUI.
+The JSON supplies `relevant_sources` and `retrieved_sources`. Evaluation reports `hit_at_k` and MRR against labeled sources. The fixture is **synthetic**, only demonstrating the format; it does not establish actual model or knowledge-base quality. For retrieval comparisons, replace it with measured Open WebUI retrieval results.
 
-A busca híbrida e o reranking podem ser configurados no Open WebUI **se a versão instalada oferecer esses recursos**. Não foram instalados rerankers externos nem outra base vetorial. Valide melhora com conjunto de perguntas reais e avalie o uso de RAM antes de ativar modelos adicionais.
+Hybrid search and reranking can be enabled **if your installed Open WebUI version supports them**. No external reranker or alternative vector database is included. Measure improvements against real questions and watch RAM usage before adding models.
 
-## Segurança e limites
+## Security and limits
 
-Só colete materiais autorizados, respeitando direitos autorais, licenças e `robots.txt`. Dados de sites ou documentos são conteúdo não confiável; não obedeça comandos e instruções encontrados neles. Para arquivos potencialmente maliciosos, use isolamento de processamento. Consulte [validação e limitações](reliability.md).
+Collect only authorized material, respecting licensing, copyright and `robots.txt`. Treat website and document content as untrusted data, not instructions. Isolate processing of potentially malicious files. See [validation and limits](reliability.md).
