@@ -1,44 +1,44 @@
-# Coleta web para o RAG
+# Web ingestion for RAG
 
-Este guia descreve **recursos atuais**. A CLI oferece URLs individuais, listas `urls.txt`, crawler recursivo autorizado, descoberta por sitemap e PDFs remotos fornecidos explicitamente. Extração HTML usa Trafilatura; resultados podem ser enviados à Knowledge Base do Open WebUI.
+This guide covers the **currently implemented** features: individual HTTPS URLs, `urls.txt` lists, bounded authorized recursive crawling, sitemap discovery and explicitly supplied remote PDFs. HTML is extracted with Trafilatura and can be uploaded to an Open WebUI Knowledge Base.
 
-## Pré-requisitos
+## Prerequisites
 
-Instale dependências e configure a API conforme o [README](../README.md#habilitar-o-rag). Crie `urls.txt` com uma URL HTTPS por linha e comentários iniciados por `#`:
+Install dependencies and configure API access as shown in the [README](../README.md#enable-rag). Create `urls.txt` with one HTTPS URL per line; lines starting with `#` are comments:
 
 ```text
-https://example.org/artigo-a
-https://example.org/artigo-b
+https://example.org/article-a
+https://example.org/article-b
 ```
 
 ```bash
 python -m ingest.cli --urls-file urls.txt --allow-domain example.org --dry-run
-python -m ingest.cli --url https://example.org/artigo-a --allow-domain example.org --dry-run
+python -m ingest.cli --url https://example.org/article-a --allow-domain example.org --dry-run
 ```
 
-Para coletar e indexar, remova `--dry-run` depois de definir `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID`. URLs são deduplicadas; páginas alteradas são reprocessadas usando hash do texto. O estado fica em `biblioteca/.web-ingest.sqlite3`.
+Remove `--dry-run` only after defining `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID`. URLs are deduplicated; changed pages are reprocessed based on text hashes. State is stored in `biblioteca/.web-ingest.sqlite3`.
 
-## Descoberta de páginas
+## Page discovery
 
 ```bash
 python -m ingest.cli --url https://example.org/library/index --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
 python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run
 ```
 
-O crawler só segue links internos dentro do diretório da URL inicial, com profundidade de 0 a 3 e até 100 páginas tentadas por execução. A busca por sitemap aceita índices XML limitados, não segue links arbitrários e também requer um domínio autorizado. `--crawl` sozinho exige uma URL inicial `--url` ou `--urls-file`; usar apenas `--sitemap` não habilita crawling adicional.
+The crawler follows only in-directory links on the seed URL's host, with a depth of 0–3 and up to 100 attempted pages per run. Sitemap discovery supports bounded XML sitemap indexes; it does not follow arbitrary links and requires an authorized domain. `--crawl` requires an HTTPS seed from `--url` or `--urls-file`; `--sitemap` alone does not enable additional crawling.
 
-A opção `--remote-pdf` importa **somente o PDF explicitamente indicado**, não todos os PDFs linkados pelo site:
+`--remote-pdf` imports **only the explicitly supplied PDF**, not every PDF linked on a site:
 
 ```bash
-python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain example.org --dry-run
+python -m ingest.cli --remote-pdf https://example.org/book.pdf --allow-domain example.org --dry-run
 ```
 
-## Proteções e limites
+## Safeguards and limits
 
-- **HTTPS/443 e allowlist exata:** o host da URL precisa corresponder ao parâmetro `--allow-domain`; subdomínios exigem autorização separada.
-- **Sem redirecionamentos:** forneça a URL final explicitamente; resoluções de IP não globais são recusadas e o TLS confere o nome do host.
-- **Robots e ritmo:** o coletor consulta `robots.txt`, não ignora bloqueios e usa pausas entre requisições.
-- **Limites de volume:** HTML até 2 MiB, PDFs remotos até 30 MiB, lista de URLs até 100 entradas; crawler até 100 páginas, profundidade máxima 3.
-- **Não inclui:** login em sites, execução JavaScript, `sitemap.xml.gz`, descoberta automática de PDFs ou contorno de bloqueios.
+- **HTTPS/443 and exact host allowlist:** the URL host must match `--allow-domain`; authorize subdomains separately.
+- **No redirects:** supply the final URL explicitly. Non-global IP addresses are refused and TLS verifies the host name.
+- **Robots and rate limits:** the fetcher respects `robots.txt`, fails closed for disallowed resources and pauses between requests.
+- **Size/volume:** HTML up to 2 MiB, remote PDFs up to 30 MiB, URL lists up to 100 entries, crawler up to 100 pages and maximum depth 3.
+- **Not included:** site login, JavaScript execution, `sitemap.xml.gz`, automatic PDF discovery or bypassing access restrictions.
 
-Respeite licenças, autorização e termos de uso. `robots.txt` não equivale a licença de reprodução. `example.org` é apenas ilustrativo: substitua por fonte autorizada. Consulte [documentos e OCR](advanced-import.md) e [detalhes de confiabilidade](reliability.md).
+Respect licenses, permission and terms of use. `robots.txt` permission is not a reproduction license. `example.org` is illustrative; use an authorized source. See [documents and OCR](advanced-import.md) and [reliability details](reliability.md).
