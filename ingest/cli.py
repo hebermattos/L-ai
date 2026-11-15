@@ -36,7 +36,7 @@ def parse_args(argv=None):
     p.add_argument("--knowledge-id", default=os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", ""))
     p.add_argument("--webui-url", default="http://127.0.0.1:3000")
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--state", type=Path, default=Path("biblioteca/.web-ingest.sqlite3"))
+    p.add_argument("--state", type=Path, default=Path("knowledge/.web-ingest.sqlite3"))
     p.add_argument("--max-urls", type=int, default=25)
     return p.parse_args(argv)
 
@@ -65,8 +65,8 @@ def extract_markdown(url, html):
 
 
 def format_doc(url, title, body):
-    return (f"# {title}\n\nFonte original: {url}\n"
-            f"Coletado em: {datetime.now(timezone.utc).date().isoformat()}\n\n{body}\n")
+    return (f"# {title}\n\nOriginal source: {url}\n"
+            f"Collected on: {datetime.now(timezone.utc).date().isoformat()}\n\n{body}\n")
 
 
 def run(argv=None):

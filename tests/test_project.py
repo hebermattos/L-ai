@@ -27,10 +27,11 @@ class ProjectConfigurationTests(unittest.TestCase):
         compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
         self.assertIn("WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?", compose)
 
-    def test_document_library_ignored(self):
+    def test_knowledge_directory_ignored(self):
         ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
-        self.assertIn("biblioteca/**", ignored)
+        self.assertIn("knowledge/**", ignored)
         self.assertIn(".env", ignored)
+        self.assertTrue((ROOT / "knowledge/.gitkeep").is_file())
 
     def test_model_is_instruction_quantized(self):
         modelfile = (ROOT / "config/Modelfile").read_text(encoding="utf-8")
