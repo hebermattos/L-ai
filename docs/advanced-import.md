@@ -1,45 +1,45 @@
-# Crawler e importação de documentos
+# Crawling and document imports
 
-O L-ai pode explorar links HTML internos de sites autorizados e importar **PDF/EPUB locais**, além de **PDFs remotos explicitamente indicados**. Para usar a CLI, siga a instalação de dependências e credenciais do [README](../README.md#habilitar-o-rag).
+L-ai can follow internal HTML links on authorized sites and import **local PDF/EPUB files**, as well as **explicitly specified remote PDFs**. Set up dependencies and credentials using the [README](../README.md#enable-rag).
 
-## Crawler recursivo
+## Recursive crawler
 
 ```bash
 python -m ingest.cli --url https://example.org/library/index --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
 ```
 
-Busca em largura no domínio e diretório da URL inicial; ignora links externos, `nofollow`, recursos não HTML e URLs repetidas. Não executa JavaScript. Os limites de profundidade (0 a 3) e páginas (1 a 100) valem por execução. A descoberta por `sitemap.xml` está descrita em [coleta web](web-ingestion.md).
+The crawler uses breadth-first traversal within the seed URL's host and directory. It skips external links, `nofollow`, non-HTML resources and duplicate URLs; it does not execute JavaScript. Depth is limited to 0–3 and page attempts to 1–100 per run. See [web ingestion](web-ingestion.md) for sitemap discovery.
 
-## PDF e EPUB locais
+## Local PDF and EPUB
 
 ```bash
-python -m ingest.cli --file ~/Livros/obra.pdf --file ~/Livros/obra.epub --dry-run
-python -m ingest.cli --directory ~/Livros --max-documents 50 --dry-run
+python -m ingest.cli --file ~/Books/book.pdf --file ~/Books/book.epub --dry-run
+python -m ingest.cli --directory ~/Books --max-documents 50 --dry-run
 ```
 
-O diretório é percorrido recursivamente; links simbólicos são rejeitados. PDFs precisam conter texto selecionável ou utilizar OCR opcional. EPUB não requer OCR e conteúdo criptografado não é suportado. O extrator preserva título e autor quando presentes; PDFs incluem marcadores de página.
+Directory traversal is recursive; symbolic links are rejected. PDFs must include selectable text or use optional OCR. EPUB OCR is not needed; encrypted content is unsupported. Title and author metadata are preserved where available, and PDFs include page markers.
 
-Limites: PDF de até 30 MiB, 500 páginas e 2 milhões de caracteres extraídos; EPUB até 20 MiB, 80 MiB descompactados e 500 entradas ZIP. Processa até 100 documentos por execução (`--max-documents`, padrão 50).
+Limits: PDF up to 30 MiB, 500 pages, and 2 million extracted characters; EPUB up to 20 MiB, 80 MiB decompressed, and 500 ZIP entries. At most 100 documents per run (`--max-documents`, default 50).
 
-## OCR opcional para PDFs digitalizados
+## Optional OCR for scanned PDFs
 
-Instale o Tesseract e os idiomas português/inglês no host:
+Install Tesseract and Portuguese/English language packs on the host:
 
 ```bash
 sudo apt-get install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng
-python -m ingest.cli --file ~/Livros/digitalizado.pdf --ocr --dry-run
+python -m ingest.cli --file ~/Books/scanned.pdf --ocr --dry-run
 ```
 
-O OCR roda **somente nas páginas sem texto selecionável**, com 120 DPI, timeout de 45 s por página e limite de 100 páginas para OCR. Execute inicialmente com `--dry-run`. O processamento pode ser lento em CPU.
+OCR runs **only on pages without selectable text**, at 120 DPI, with a 45-second timeout per page and a 100-page OCR limit. Try `--dry-run` first; CPU-only processing can be slow.
 
-## PDF remoto
+## Remote PDFs
 
 ```bash
-python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain example.org --dry-run
+python -m ingest.cli --remote-pdf https://example.org/book.pdf --allow-domain example.org --dry-run
 ```
 
-Exige HTTPS, `robots.txt`, domínio autorizado, extensão `.pdf` e assinatura PDF. Não há OCR remoto; para escaneados, obtenha uma cópia local autorizada. A segurança da coleta é detalhada em [coleta web](web-ingestion.md).
+Requires HTTPS, `robots.txt` compliance, an authorized domain, the `.pdf` extension and a PDF signature. There is no remote OCR; obtain an authorized local copy for scanned documents. See [web ingestion](web-ingestion.md) for safeguards.
 
-## Indexação
+## Indexing
 
-A remoção de `--dry-run` envia os trechos para o Open WebUI, após configuração da API e base. O estado local evita reindexar conteúdos idênticos por hash. Arquivos são identificados por URI local no estado, mas o caminho absoluto não é incluído no documento indexado. Confirme a busca no chat usando fontes conhecidas; veja [confiabilidade](reliability.md).
+Remove `--dry-run` to upload passages to Open WebUI after setting credentials. Local state uses content hashes to avoid reindexing unchanged documents. Local files are identified by URI in the state database, but absolute paths are not embedded into indexed text. Verify retrieval with known sources in chat; see [reliability](reliability.md).
