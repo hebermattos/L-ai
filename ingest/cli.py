@@ -13,6 +13,7 @@ from .crawler import crawl
 from .sitemap import sitemap_urls
 from .remote import read_remote_pdf
 from .documents import DocumentError, file_paths, format_document, read_document
+from .folder import discover_import_folder
 from .service import ingest_page
 from .state import IngestState
 from .web import SafeFetcher, SourceRejected, normalized_url
@@ -31,6 +32,7 @@ def parse_args(argv=None):
     p.add_argument("--max-pages", type=int, default=25)
     p.add_argument("--file", type=Path, action="append", default=[])
     p.add_argument("--directory", type=Path)
+    p.add_argument("--import-folder", type=Path, help="Recursively import PDF/EPUB files and TXT URL lists")
     p.add_argument("--max-documents", type=int, default=50)
     p.add_argument("--ocr", action="store_true", help="Use local Tesseract only for scanned PDF pages")
     p.add_argument("--knowledge-id", default=os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", ""))
@@ -41,8 +43,8 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def list_urls(args):
-    urls = list(args.url)
+def list_urls(args, extra_urls=()):
+    urls = list(args.url) + list(extra_urls)
     if args.urls_file:
         if args.urls_file.stat().st_size > 65536:
             raise ValueError("URL list exceeds 64 KiB")
@@ -72,8 +74,10 @@ def format_doc(url, title, body):
 def run(argv=None):
     args = parse_args(argv)
     try:
-        urls = list_urls(args)
-        documents = file_paths(args.file, args.directory, args.max_documents)
+        folder_documents, folder_urls = (discover_import_folder(args.import_folder)
+                                         if args.import_folder else ([], []))
+        urls = list_urls(args, folder_urls)
+        documents = file_paths(args.file + folder_documents, args.directory, args.max_documents)
         if args.sitemap or args.remote_pdf:
             if not args.allow_domain:
                 raise ValueError("--allow-domain required for remote resources")
@@ -82,7 +86,7 @@ def run(argv=None):
         if args.sitemap and not 1 <= args.max_pages <= 100:
             raise ValueError("Invalid sitemap max-pages")
         if not urls and not documents and not args.sitemap and not args.remote_pdf:
-            raise ValueError("Provide --url, --urls-file, --file, or --directory")
+            raise ValueError("Provide --url, --urls-file, --file, --directory, or --import-folder with supported content")
         if args.crawl and not urls:
             raise ValueError("--crawl requires an HTTPS seed")
         if args.crawl and len(urls) > args.max_pages:
