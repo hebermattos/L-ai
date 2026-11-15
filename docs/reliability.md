@@ -1,6 +1,6 @@
 # Reliability, failure recovery, and testing
 
-L-ai maintains local SQLite state in `biblioteca/.web-ingest.sqlite3`, keyed by `(url, knowledge_id)`. The same source can therefore be used across multiple knowledge bases. Legacy schema migration is transactional; **back up SQLite before upgrading**.
+L-ai maintains local SQLite state in `knowledge/.web-ingest.sqlite3`, keyed by `(url, knowledge_id)`. The same source can therefore be used across multiple knowledge bases. Legacy schema migration is transactional; **back up SQLite before upgrading**.
 
 ## Ingestion states
 
@@ -37,3 +37,7 @@ For an **end-to-end RAG test**, attach the base to the chat, ask about a unique 
 If `docker compose ps` reports a stopped service, check `docker compose logs --tail=100`. If upload fails, verify the API key, knowledge-base ID, and API version. If answers lack citations, confirm that the base is attached to the chat and test retrieval of an exact passage. When releases behave differently, pin tested Docker image versions before modifying the code.
 
 See [knowledge pipeline](knowledge-pipeline.md) and [installation](../README.md).
+
+## Directory migration
+
+The default state directory is `knowledge/`. For previous installations using `biblioteca/`, back up the local data and run `bash scripts/migrate-knowledge.sh` before ingestion. The script refuses to overwrite an existing destination. When both directories exist, reconcile them manually; the ingestion CLI accepts `--state` to select a database explicitly.
