@@ -26,7 +26,7 @@ class FolderImportTests(TestCase):
             self.assertEqual({p.name for p in docs}, {"a.pdf", "b.epub"})
             args = parse_args(["--import-folder", str(root), "--allow-domain", "example.org"])
             self.assertEqual(list_urls(args, urls),
-                             ["https://example.org/a", "https://example.org/b"])
+                             ["https://example.org/b", "https://example.org/a"])
 
     def test_rejects_symlinks(self):
         with TemporaryDirectory() as temp:
