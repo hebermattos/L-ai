@@ -40,7 +40,7 @@ class ProjectConfigurationTests(unittest.TestCase):
     def test_setup_creates_secret_and_model(self):
         setup = (ROOT / "scripts/setup.sh").read_text(encoding="utf-8")
         self.assertIn("openssl rand -hex 32", setup)
-        self.assertIn("ollama create arcana", setup)
+        self.assertIn("ollama create lai", setup)
 
 
 if __name__ == "__main__":

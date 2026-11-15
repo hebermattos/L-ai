@@ -28,8 +28,8 @@ fi
 
 docker compose up -d
 docker compose exec -T ollama ollama pull qwen3:4b-instruct
-docker compose exec -T ollama ollama create arcana -f /config/Modelfile
+docker compose exec -T ollama ollama create lai -f /config/Modelfile
 
 echo
-echo "Instalação configurada. Abra http://localhost:3000"
+echo "Instalação configurada. Abra http://localhost:3000 e selecione o modelo lai."
 echo "Importe seus documentos em Workspace -> Knowledge para habilitar RAG."
