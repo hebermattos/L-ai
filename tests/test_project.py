@@ -30,7 +30,8 @@ class ProjectConfigurationTests(unittest.TestCase):
     def test_knowledge_directory_ignored(self):
         ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
         self.assertIn("knowledge/**", ignored)
-        self.assertIn(".env", ignored)\n        self.assertTrue((ROOT / "knowledge/.gitkeep").is_file())
+        self.assertIn(".env", ignored)
+        self.assertTrue((ROOT / "knowledge/.gitkeep").is_file())
 
     def test_model_is_instruction_quantized(self):
         modelfile = (ROOT / "config/Modelfile").read_text(encoding="utf-8")
