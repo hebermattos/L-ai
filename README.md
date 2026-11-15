@@ -114,3 +114,7 @@ Upgrade with `docker compose pull && docker compose up -d`, preferably using pin
 ```
 
 References: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI](https://docs.openwebui.com/), and [Docker](https://docs.docker.com/engine/install/ubuntu/).
+
+## Language policy
+
+Source code, identifiers, comments, test names, CLI messages, model instructions and project documentation are maintained in **English**. The assistant can still respond in the user's requested language, including Brazilian Portuguese. Keep public CLI flags and existing storage identifiers stable for compatibility.
