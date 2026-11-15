@@ -103,7 +103,7 @@ Upgrade with `docker compose pull && docker compose up -d`, preferably using pin
 ├── compose.yaml
 ├── .env.example
 ├── config/Modelfile
-├── biblioteca/                 # Local content and state, ignored by Git
+├── knowledge/                 # Local content and state, ignored by Git
 ├── ingest/                     # CLI, crawler, extractors, Open WebUI integration
 ├── requirements-ingest.txt
 ├── docs/                       # User and operations guides
@@ -117,4 +117,14 @@ References: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI]
 
 ## Language policy
 
-Source code, identifiers, comments, test names, CLI messages, model instructions and project documentation are maintained in **English**. The assistant can still respond in the user's requested language, including Brazilian Portuguese. Keep public CLI flags and existing storage identifiers stable for compatibility.
+Source code, identifiers, comments, test names, CLI messages, model instructions and project documentation are maintained in **English**. The assistant can still respond in the user's requested language, including Brazilian Portuguese. Keep public CLI flags stable; see the migration instructions below for the renamed local storage directory.
+
+## Upgrading the local knowledge directory
+
+The local content and SQLite state directory is now `knowledge/`. On an existing installation, **back up your local data first**, then migrate the former directory before running ingestion:
+
+```bash
+bash scripts/migrate-knowledge.sh
+```
+
+The migration script renames the legacy `biblioteca/` directory only when `knowledge/` does not already exist. It refuses to merge directories or overwrite existing data. If both directories exist, inspect and reconcile them manually. The `--state` CLI option still accepts a custom database path.
