@@ -1,12 +1,12 @@
-# L-ai — IA local com RAG
+# L-ai — Local AI with RAG
 
-Assistente de IA **de propósito geral** com chat local e recuperação de conhecimento (**RAG**). Usa **Ollama + Qwen3 4B Instruct + Open WebUI** para pesquisar documentos e responder perguntas em diferentes áreas. Destinado a Linux com **CPU e 16 GB de RAM**, sem GPU obrigatória.
+A **general-purpose**, fully local chat assistant with retrieval-augmented generation (**RAG**). Uses **Ollama + Qwen3 4B Instruct + Open WebUI** to query your documents across different subjects. Designed for Linux systems with **CPU and 16 GB RAM**; no GPU required.
 
-O RAG não treina nem altera os pesos do modelo: ele indexa documentos autorizados e recupera trechos relevantes durante a conversa. O assistente não é limitado a um tema específico.
+RAG does **not** train or modify model weights. It indexes authorized documents and retrieves relevant excerpts at question time. L-ai is not restricted to a particular subject.
 
-## Instalação rápida
+## Quick start
 
-Pré-requisitos: Ubuntu/Debian, Docker Engine com Compose v2, Git e OpenSSL, acesso ao Docker e espaço livre para modelos e documentos. A primeira instalação baixa imagens e o modelo.
+Requirements: Ubuntu/Debian, Docker Engine with Compose v2, Git, OpenSSL, Docker access, and sufficient disk space. The initial setup downloads images and the model.
 
 ```bash
 git clone https://github.com/hebermattos/L-ai.git
@@ -15,75 +15,75 @@ bash scripts/setup.sh
 docker compose ps
 ```
 
-Abra **http://localhost:3000**, crie o administrador local e escolha o modelo **lai**. O script cria um segredo em `.env`, inicia Ollama/Open WebUI, baixa o Qwen e configura o perfil genérico `lai`. Não execute o script como `sudo bash`; configure o acesso ao Docker conforme a [documentação oficial](https://docs.docker.com/engine/install/linux-postinstall/).
+Open **http://localhost:3000**, create a local administrator, and select the **lai** model. The setup script generates an untracked secret in `.env`, starts Ollama/Open WebUI, downloads Qwen, and creates the generic `lai` profile. Do not run `sudo bash scripts/setup.sh`; configure Docker access using the [official instructions](https://docs.docker.com/engine/install/linux-postinstall/).
 
-**Teste inicial:** peça ao modelo que explique um conceito de programação ou resuma uma ideia geral. Isso testa apenas a inferência, não a recuperação RAG.
+**Smoke test:** ask the model to explain a programming concept. This tests inference, **not** RAG retrieval.
 
-## Habilitar o RAG
+## Enable RAG
 
-1. No Open WebUI, entre em **Workspace → Knowledge** e crie uma base chamada `Biblioteca de Conhecimento`.
-2. Importe um pequeno PDF com texto selecionável ou TXT/Markdown pela interface.
-3. No chat com `lai`, vincule essa base usando o seletor de conhecimento (em versões compatíveis, digite `#`) ou configure a base no modelo personalizado.
-4. Pergunte algo que só consta do documento; confira se a resposta indica a fonte correta. Uma resposta plausível sem referência **não comprova** que o RAG foi usado.
+1. In Open WebUI, go to **Workspace → Knowledge** and create a knowledge base such as `Knowledge Library`.
+2. Upload a small text-based PDF, TXT, or Markdown file.
+3. In the `lai` chat, attach the knowledge base using the knowledge selector (in supported versions, type `#`), or associate it with a custom model.
+4. Ask a question answered **only** in the document, and verify the source attribution. A plausible answer without a citation does **not** prove RAG was used.
 
-Para ingestão automatizada via API, crie uma chave no Open WebUI (área de conta) e obtenha o ID da base. Em um terminal local:
+For automated ingestion, create an API key in Open WebUI and obtain the knowledge-base ID:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-ingest.txt
-export OPEN_WEBUI_API_KEY='SUA_CHAVE'
-export OPEN_WEBUI_KNOWLEDGE_ID='ID_DA_BASE'
+export OPEN_WEBUI_API_KEY='YOUR_API_KEY'
+export OPEN_WEBUI_KNOWLEDGE_ID='YOUR_KNOWLEDGE_BASE_ID'
 ```
 
-Não adicione tokens a arquivos versionados. A instalação base do Docker não instala automaticamente as dependências Python de ingestão no host.
+Never commit credentials. The Docker setup does not install the host-side Python ingestion dependencies.
 
-## Importar conteúdo
+## Import content
 
-**Páginas individuais** (uma URL de um domínio explicitamente autorizado):
+**Individual authorized HTTPS pages:**
 
 ```bash
-python -m ingest.cli --url https://example.org/artigo --allow-domain example.org --dry-run
+python -m ingest.cli --url https://example.org/article --allow-domain example.org --dry-run
 ```
 
-**Crawler recursivo controlado**, limitado ao host e ao diretório inicial:
+**Bounded recursive crawler** (same host and seed directory):
 
 ```bash
 python -m ingest.cli --url https://example.org/library/index --allow-domain example.org --crawl --max-depth 2 --max-pages 25 --dry-run
 ```
 
-**Sitemap** e **PDF remoto** (endereços HTTPS autorizados, explícitos):
+**Sitemaps and explicitly provided remote PDFs:**
 
 ```bash
 python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run
-python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain example.org --dry-run
+python -m ingest.cli --remote-pdf https://example.org/book.pdf --allow-domain example.org --dry-run
 ```
 
-**Livros locais** (PDF/EPUB) e **OCR opcional** de PDFs escaneados:
+**Local PDF/EPUB books and optional scanned-PDF OCR:**
 
 ```bash
-python -m ingest.cli --directory ~/Livros --max-documents 50 --dry-run
-python -m ingest.cli --file ~/Documentos/arquivo.pdf --ocr --dry-run
+python -m ingest.cli --directory ~/Books --max-documents 50 --dry-run
+python -m ingest.cli --file ~/Documents/scanned.pdf --ocr --dry-run
 ```
 
-Substitua `example.org` por um domínio que permita a coleta. `--dry-run` extrai e apresenta resultados sem enviar à base; para indexar, remova essa opção após configurar a chave e o ID. O OCR requer Tesseract e pacotes de idioma instalados à parte.
+Replace `example.org` with a site you are authorized to collect. `--dry-run` extracts and reports without uploading; remove it only after configuring the API key and knowledge-base ID. OCR requires separately installed Tesseract and language packs.
 
-O scraping só aceita HTTPS, hosts expressamente autorizados, regras `robots.txt`, não segue redirecionamentos e limita profundidade/tamanho. **Não faz scraping de sites arbitrários ou JavaScript dinâmico.** PDF remoto exige URL fornecida explicitamente; o crawler não baixa automaticamente cada PDF encontrado.
+Web ingestion requires HTTPS, explicitly allowed hosts and compliance with `robots.txt`; it rejects redirects and bounds depth, size, and volume. **It does not support arbitrary-site scraping or JavaScript-rendered sites.** Remote PDFs must be supplied explicitly; crawling does not automatically download linked PDFs.
 
-## Consultar e verificar
+## Query and verify
 
-No Open WebUI, escolha `lai` e vincule a biblioteca importada. Perguntas de exemplo: “Quais são os requisitos descritos neste documento?” ou “Resuma o capítulo 2 e cite a fonte utilizada.”
+Select `lai` in Open WebUI and attach the imported knowledge base. Example questions: “What requirements does this document describe?” or “Summarize chapter 2 and cite the source.”
 
-Para testar upload, indexação e associação com uma **base descartável**, consulte [validação real do RAG](docs/reliability.md). Isso não substitui um teste de recuperação semântica no chat.
+For a real upload/index/link test against a **disposable** knowledge base, see [reliability testing](docs/reliability.md). This is not a substitute for semantic retrieval verification in chat.
 
-## Documentação por assunto
+## Documentation
 
-- [Coleta web e segurança](docs/web-ingestion.md) — URLs, sitemap, limites, permissão.
-- [Crawler e documentos locais](docs/advanced-import.md) — navegação, PDF, EPUB e OCR.
-- [Confiabilidade e testes](docs/reliability.md) — SQLite, atualização, recuperação de falhas.
-- [Pipeline e avaliação](docs/knowledge-pipeline.md) — agenda, metadados, métricas e busca híbrida.
+- [Web ingestion and safeguards](docs/web-ingestion.md): URLs, sitemaps, limits, permissions.
+- [Crawler and local documents](docs/advanced-import.md): navigation, PDF, EPUB, OCR.
+- [Reliability and tests](docs/reliability.md): SQLite, updates, recovery.
+- [Knowledge pipeline and evaluation](docs/knowledge-pipeline.md): schedules, metadata, retrieval metrics, hybrid search.
 
-## Operação e limites
+## Operations and limitations
 
 ```bash
 docker compose ps
@@ -92,25 +92,29 @@ docker compose stop
 docker compose start
 ```
 
-O chat fica em `127.0.0.1:3000`; Ollama permanece na rede interna Docker. Os volumes `ollama_data` e `open_webui_data` guardam modelos e dados. Faça backup antes de atualizar; **não use `docker compose down -v`** se quiser preservá-los. Não exponha a API ou o chat à internet sem controles adicionais. A coleta de sites usa rede externa; a inferência local não exige API paga.
+The chat binds to `127.0.0.1:3000`; Ollama stays on the internal Docker network. Persistent volumes `ollama_data` and `open_webui_data` contain the model and application data. Back them up before upgrades. **Do not use `docker compose down -v`** unless you intend to delete these volumes. Do not expose the service to the internet without additional access controls. Web ingestion needs outbound network access; local inference requires no paid API.
 
-Atualização: `docker compose pull && docker compose up -d`, preferencialmente com versões fixadas e backup. O desempenho depende da CPU; OCR e indexação de grandes bibliotecas podem ser lentos.
+Upgrade with `docker compose pull && docker compose up -d`, preferably after backing up and pinning tested image versions. CPU speed determines performance; large-scale OCR and indexing may be slow.
 
-## Estrutura resumida
+## Repository layout
 
 ```text
 .
 ├── compose.yaml
 ├── .env.example
 ├── config/Modelfile
-├── biblioteca/                 # conteúdo e estado local, ignorados pelo Git
-├── ingest/                     # CLI, crawler, extratores e integração Open WebUI
+├── biblioteca/                 # Local content and state; ignored by Git
+├── ingest/                     # CLI, crawler, extractors, Open WebUI integration
 ├── requirements-ingest.txt
-├── docs/                       # guias de uso
+├── docs/                       # Usage guides
 ├── scripts/setup.sh
 ├── scripts/check.sh
 ├── tests/
 └── .github/workflows/ci.yml
 ```
 
-Referências: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI](https://docs.openwebui.com/) e [Docker](https://docs.docker.com/engine/install/ubuntu/).
+References: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI](https://docs.openwebui.com/), and [Docker](https://docs.docker.com/engine/install/ubuntu/).
+
+## Language policy
+
+Source code, identifiers, comments, test names, CLI messages, model instructions and project documentation are maintained in **English**. The assistant can still respond in the user's requested language, including Brazilian Portuguese. Keep public CLI flags and existing storage identifiers stable for compatibility.
