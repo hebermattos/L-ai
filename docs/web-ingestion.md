@@ -16,7 +16,7 @@ python -m ingest.cli --urls-file urls.txt --allow-domain example.org --dry-run
 python -m ingest.cli --url https://example.org/article-a --allow-domain example.org --dry-run
 ```
 
-To index content, remove `--dry-run` after setting `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID`. URLs are deduplicated and changed pages are reprocessed based on text hashes. State is saved in `biblioteca/.web-ingest.sqlite3`.
+To index content, remove `--dry-run` after setting `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID`. URLs are deduplicated and changed pages are reprocessed based on text hashes. State is saved in `knowledge/.web-ingest.sqlite3`.
 
 ## Page discovery
 
