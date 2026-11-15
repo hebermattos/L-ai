@@ -19,10 +19,6 @@ Abra **http://localhost:3000**, crie o administrador local e escolha o modelo **
 
 **Teste inicial:** peça ao modelo que explique um conceito de programação ou resuma uma ideia geral. Isso testa apenas a inferência, não a recuperação RAG.
 
-## Migração de instalações anteriores
-
-Se você utilizava o perfil antigo `arcana`, execute novamente `bash scripts/setup.sh` após atualizar o repositório. O novo modelo local **`lai`** será criado com instruções genéricas. Selecione `lai` no Open WebUI e atualize modelos personalizados ou chats que ainda usem o perfil anterior. O script **não apaga** automaticamente `arcana`, conversas, modelos ou bases existentes; isso evita perda de dados. Seus documentos antigos continuam disponíveis e só serão utilizados quando a base correspondente estiver vinculada à conversa.
-
 ## Habilitar o RAG
 
 1. No Open WebUI, entre em **Workspace → Knowledge** e crie uma base chamada `Biblioteca de Conhecimento`.
