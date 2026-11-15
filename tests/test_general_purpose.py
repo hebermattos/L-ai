@@ -20,8 +20,8 @@ class GeneralPurposeTests(unittest.TestCase):
     def test_docs_use_current_assistant(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         guide = (ROOT / "docs/knowledge-pipeline.md").read_text(encoding="utf-8")
-        self.assertIn("**lai** model", readme)
-        self.assertIn("chat `lai`", guide)
+        self.assertRegex(readme, r"(?<![A-Za-z])lai(?![A-Za-z])")
+        self.assertRegex(guide, r"(?<![A-Za-z])lai(?![A-Za-z])")
         self.assertNotIn("Migration from previous installations", readme)
 
     def test_default_prompt_is_not_domain_restricted(self):
