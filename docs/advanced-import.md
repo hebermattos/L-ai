@@ -2,6 +2,27 @@
 
 L-ai can recursively follow internal HTML links on authorized websites and import **local PDFs/EPUBs** as well as **explicitly supplied remote PDFs**. Before using the CLI, follow the dependency and credential setup in the [README](../README.md#enable-rag).
 
+## Single-command folder import
+
+Use `--import-folder` to recursively discover PDF/EPUB files and URL lists in a single directory:
+
+```bash
+python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
+```
+
+Each `.txt` file in the folder tree is interpreted as a UTF-8 URL list (one HTTPS URL per line with optional blank lines and `#` comments). PDF/EPUB files are extracted locally. URLs must be explicitly authorized with `--allow-domain`; existing network restrictions and `robots.txt` checks remain in force. The command uses the normal Open WebUI credentials when `--dry-run` is removed. Optional `--crawl`, `--max-depth`, `--max-pages`, `--max-documents`, and `--ocr` flags remain available. Symbolic links are rejected. At most 20 URL lists (64 KiB combined) and 1,000 directory entries are examined per run; other file types are ignored. Default URL and document limits still apply.
+
+Example folder layout:
+
+```text
+knowledge-to-import/
+├── books/
+│   ├── manual.pdf
+│   └── reference.epub
+├── resources.txt
+└── more-urls.txt
+```
+
 ## Recursive crawler
 
 ```bash
