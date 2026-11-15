@@ -43,7 +43,8 @@ class DocumentationTests(unittest.TestCase):
                 with self.subTest(file=str(filename), argv=argv):
                     args = parse_args(argv)
                     self.assertTrue(args.url or args.urls_file or args.sitemap
-                                    or args.remote_pdf or args.file or args.directory)
+                                    or args.remote_pdf or args.file or args.directory
+                                    or args.import_folder)
         self.assertGreaterEqual(found, 9)
 
     def test_no_old_feature_contradictions(self):
