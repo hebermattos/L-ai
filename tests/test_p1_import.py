@@ -53,13 +53,13 @@ class DocumentTests(unittest.TestCase):
         import fitz
         path = self.root / "sample.pdf"
         pdf = fitz.open()
-        pdf.set_metadata({"title": "Alchemy", "author": "Researcher"})
+        pdf.set_metadata({"title": "Technical Notes", "author": "Researcher"})
         page = pdf.new_page()
-        page.insert_text((72,72), ("An account of alchemy and historical symbolism.\\n" * 5))
+        page.insert_text((72,72), ("An account of software architecture and system design.\\n" * 5))
         pdf.save(path)
         pdf.close()
         doc = read_document(path)
-        self.assertEqual(doc.title, "Alchemy")
+        self.assertEqual(doc.title, "Technical Notes")
         self.assertIn("Página 1", doc.body)
         self.assertIn("Researcher", format_document(doc))
 
@@ -68,11 +68,11 @@ class DocumentTests(unittest.TestCase):
         path = self.root / "sample.epub"
         book = epub.EpubBook()
         book.set_identifier("book-test")
-        book.set_title("Hermetic Texts")
+        book.set_title("Technical Reference")
         book.set_language("en")
         book.add_author("Author")
         chapter = epub.EpubHtml(title="Section", file_name="chap1.xhtml", lang="en")
-        chapter.content = "<html><body><p>" + ("Historical hermeticism " * 15) + "</p><script>bad()</script></body></html>"
+        chapter.content = "<html><body><p>" + ("Technical documentation " * 15) + "</p><script>bad()</script></body></html>"
         book.add_item(chapter)
         book.toc = (chapter,)
         book.spine = ["nav", chapter]
@@ -80,8 +80,8 @@ class DocumentTests(unittest.TestCase):
         book.add_item(epub.EpubNav())
         epub.write_epub(str(path), book)
         doc = read_document(path)
-        self.assertEqual(doc.title, "Hermetic Texts")
-        self.assertIn("Historical hermeticism", doc.body)
+        self.assertEqual(doc.title, "Technical Reference")
+        self.assertIn("Technical documentation", doc.body)
         self.assertNotIn("bad()", doc.body)
 
     def test_reject_excessive_epub_ratio(self):

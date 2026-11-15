@@ -34,7 +34,7 @@ class RemoteTests(unittest.TestCase):
         pdf=fitz.open()
         page=pdf.new_page()
         for n in range(8):
-            page.insert_text((60,90+n*24),"Historical sources on alchemy and manuscripts.")
+            page.insert_text((60,90+n*24),"Technical information about infrastructure and software.")
         data=pdf.tobytes()
         pdf.close()
         f=MagicMock(domains={"example.org"})

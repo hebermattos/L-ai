@@ -7,7 +7,7 @@ Guia operacional complementar ao [README](../README.md). Nenhuma funcionalidade 
 1. **Coletar:** URLs, crawling autorizado, sitemap ou PDFs/EPUBs. Faça `--dry-run` antes da indexação. Veja [coleta web](web-ingestion.md) e [documentos](advanced-import.md).
 2. **Extrair e normalizar:** Trafilatura (HTML), PyMuPDF (PDF), EbookLib (EPUB), Tesseract opcional (OCR).
 3. **Indexar:** configure `OPEN_WEBUI_API_KEY` e `OPEN_WEBUI_KNOWLEDGE_ID`; remova `--dry-run` para carregar na base Knowledge.
-4. **Recuperar:** vincule a base ao modelo/chat `arcana` e faça perguntas específicas. **Indexação concluída não prova que a resposta usou os documentos.**
+4. **Recuperar:** vincule a base ao modelo/chat `lai` e faça perguntas específicas. **Indexação concluída não prova que a resposta usou os documentos.**
 5. **Avaliar:** confira fonte, fidelidade e busca para perguntas cuja resposta está documentada.
 
 ## Metadados e proveniência

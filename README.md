@@ -1,8 +1,8 @@
-# L-ai — Arcana
+# L-ai — IA local com RAG
 
-Chat local de pesquisa sobre ocultismo, hermetismo, alquimia, cabala, grimórios e história do esoterismo. Usa **Ollama + Qwen3 4B Instruct + Open WebUI** e recuperação de documentos (**RAG**). Destinado a Linux com **CPU e 16 GB de RAM**, sem GPU obrigatória.
+Assistente de IA **de propósito geral** com chat local e recuperação de conhecimento (**RAG**). Usa **Ollama + Qwen3 4B Instruct + Open WebUI** para pesquisar documentos e responder perguntas em diferentes áreas. Destinado a Linux com **CPU e 16 GB de RAM**, sem GPU obrigatória.
 
-O modelo não é treinado com os livros: o RAG extrai e indexa material autorizado para consulta no chat. Trate relatos sobrenaturais como crenças ou fontes históricas, não fatos científicos comprovados.
+O RAG não treina nem altera os pesos do modelo: ele indexa documentos autorizados e recupera trechos relevantes durante a conversa. O assistente não é limitado a um tema específico.
 
 ## Instalação rápida
 
@@ -15,15 +15,19 @@ bash scripts/setup.sh
 docker compose ps
 ```
 
-Abra **http://localhost:3000**, crie o administrador local e escolha o modelo **arcana**. O script cria um segredo em `.env`, inicia Ollama/Open WebUI e baixa o Qwen. Não execute o script como `sudo bash`; configure o acesso ao Docker conforme a [documentação oficial](https://docs.docker.com/engine/install/linux-postinstall/).
+Abra **http://localhost:3000**, crie o administrador local e escolha o modelo **lai**. O script cria um segredo em `.env`, inicia Ollama/Open WebUI, baixa o Qwen e configura o perfil genérico `lai`. Não execute o script como `sudo bash`; configure o acesso ao Docker conforme a [documentação oficial](https://docs.docker.com/engine/install/linux-postinstall/).
 
-**Teste inicial:** peça ao modelo para explicar a diferença histórica entre hermetismo e alquimia. Isso testa apenas a inferência, não a recuperação RAG.
+**Teste inicial:** peça ao modelo que explique um conceito de programação ou resuma uma ideia geral. Isso testa apenas a inferência, não a recuperação RAG.
+
+## Migração de instalações anteriores
+
+Se você utilizava o perfil antigo `arcana`, execute novamente `bash scripts/setup.sh` após atualizar o repositório. O novo modelo local **`lai`** será criado com instruções genéricas. Selecione `lai` no Open WebUI e atualize modelos personalizados ou chats que ainda usem o perfil anterior. O script **não apaga** automaticamente `arcana`, conversas, modelos ou bases existentes; isso evita perda de dados. Seus documentos antigos continuam disponíveis e só serão utilizados quando a base correspondente estiver vinculada à conversa.
 
 ## Habilitar o RAG
 
-1. No Open WebUI, entre em **Workspace → Knowledge** e crie uma base chamada `Biblioteca de Ocultismo`.
+1. No Open WebUI, entre em **Workspace → Knowledge** e crie uma base chamada `Biblioteca de Conhecimento`.
 2. Importe um pequeno PDF com texto selecionável ou TXT/Markdown pela interface.
-3. No chat com `arcana`, vincule essa base usando o seletor de conhecimento (em versões compatíveis, digite `#`) ou configure a base no modelo personalizado.
+3. No chat com `lai`, vincule essa base usando o seletor de conhecimento (em versões compatíveis, digite `#`) ou configure a base no modelo personalizado.
 4. Pergunte algo que só consta do documento; confira se a resposta indica a fonte correta. Uma resposta plausível sem referência **não comprova** que o RAG foi usado.
 
 Para ingestão automatizada via API, crie uma chave no Open WebUI (área de conta) e obtenha o ID da base. Em um terminal local:
@@ -63,7 +67,7 @@ python -m ingest.cli --remote-pdf https://example.org/obra.pdf --allow-domain ex
 
 ```bash
 python -m ingest.cli --directory ~/Livros --max-documents 50 --dry-run
-python -m ingest.cli --file ~/Livros/grimorio.pdf --ocr --dry-run
+python -m ingest.cli --file ~/Documentos/arquivo.pdf --ocr --dry-run
 ```
 
 Substitua `example.org` por um domínio que permita a coleta. `--dry-run` extrai e apresenta resultados sem enviar à base; para indexar, remova essa opção após configurar a chave e o ID. O OCR requer Tesseract e pacotes de idioma instalados à parte.
@@ -72,7 +76,7 @@ O scraping só aceita HTTPS, hosts expressamente autorizados, regras `robots.txt
 
 ## Consultar e verificar
 
-No Open WebUI, escolha `arcana` e vincule a biblioteca importada. Perguntas de exemplo: “Quais diferenças a obra apresenta entre Ars Goetia e Ars Theurgia-Goetia?” ou “Qual passagem do documento menciona correspondências planetárias?”.
+No Open WebUI, escolha `lai` e vincule a biblioteca importada. Perguntas de exemplo: “Quais são os requisitos descritos neste documento?” ou “Resuma o capítulo 2 e cite a fonte utilizada.”
 
 Para testar upload, indexação e associação com uma **base descartável**, consulte [validação real do RAG](docs/reliability.md). Isso não substitui um teste de recuperação semântica no chat.
 
