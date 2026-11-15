@@ -22,7 +22,7 @@ def read_remote_pdf(fetcher, url):
                 if total > MAX_TEXT_CHARS:
                     raise DocumentError("Extracted text too large")
                 if text:
-                    sections.append(f"## Página {n}\n\n{text}")
+                    sections.append(f"## Page {n}\n\n{text}")
             body = "\n\n".join(sections)
             if len(body) < 100:
                 raise DocumentError("PDF without selectable text; use OCR on an authorized local copy")
