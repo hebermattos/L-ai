@@ -16,14 +16,15 @@ jobs:
           WEBUI_SECRET_KEY=ci-only-test-secret docker compose -f compose.yaml -f compose.gpu.amd.yaml config --quiet
       - name: Check Bash syntax
         run: |
-          bash -n scripts/setup.sh
-          bash -n scripts/check.sh
+          for script in scripts/*.sh; do bash -n "$script"; done
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install ingestion dependencies
         run: |
           python3 -m pip install -r requirements-dev.txt
+      - name: Check shell scripts with ShellCheck
+        run: shellcheck scripts/*.sh
       - name: Check Python lint
         run: python3 -m ruff check ingest tests
       - name: Check typed ingestion contracts
@@ -33,13 +34,13 @@ jobs:
       - name: Check Python syntax
         run: python3 -m compileall -q ingest tests
 
-  platform-smoke:
-    name: Python CLI smoke (${{ matrix.os }})
+  platform-tests:
+    name: Python tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,3 +52,5 @@ jobs:
         run: python -m compileall -q ingest tests
       - name: Validate CLI entry point
         run: python -m ingest.cli --help
+      - name: Run project tests
+        run: python -m unittest discover -s tests -v

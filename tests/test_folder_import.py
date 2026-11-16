@@ -101,7 +101,12 @@ class FolderImportTests(TestCase):
     def test_rejects_symlinks(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
-            (root / "urls.txt").symlink_to(root / "missing.txt")
+            try:
+                (root / "urls.txt").symlink_to(root / "missing.txt")
+            except OSError as exc:
+                if getattr(exc, "winerror", None) == 1314:
+                    self.skipTest("Windows runner lacks symbolic-link privileges")
+                raise
             with self.assertRaises(DocumentError):
                 discover_import_folder(root)
 

@@ -61,7 +61,7 @@ def public_addresses(hostname: str) -> list[str]:
 class SafeFetcher:
     def __init__(self, domains: set[str], max_bytes: int = MAX_HTML_BYTES, pause: float = 2.0,
                  *, clock: Callable[[], float] | None = None,
-                 sleep: Callable[[float], None] | None = None):
+                 sleep: Callable[[float], None] | None = None) -> None:
         self.domains = {d.strip().lower().rstrip(".") for d in domains if d.strip()}
         if not self.domains:
             raise ValueError("At least one explicit allowed domain is required")

@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+from typing import cast
 import sys
 
 import trafilatura
 
+from .contracts import CrawlItem, SourceFetcher
 from .crawler import crawl
 from .sitemap import sitemap_urls
 from .remote import read_remote_pdf
@@ -23,7 +26,7 @@ from .web import SafeFetcher, SourceRejected, normalized_url
 from .webui import WebUI, WebUIError
 
 
-def parse_args(argv=None):
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="L-ai: approved web pages and local documents -> Open WebUI RAG")
     p.add_argument("--url", action="append", default=[])
     p.add_argument("--urls-file", type=Path)
@@ -46,7 +49,7 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def list_urls(args, extra_urls=()):
+def list_urls(args: argparse.Namespace, extra_urls: Iterable[str] = ()) -> list[str]:
     urls = list(args.url) + list(extra_urls)
     if args.urls_file:
         if args.urls_file.stat().st_size > 65536:
@@ -59,7 +62,7 @@ def list_urls(args, extra_urls=()):
     return list(dict.fromkeys(normalized_url(u, set(args.allow_domain)) for u in urls))
 
 
-def extract_markdown(url, html):
+def extract_markdown(url: str, html: bytes) -> tuple[str, str]:
     body = trafilatura.extract(html, output_format="markdown", include_links=False, include_comments=False)
     if not body or len(body.strip()) < 100:
         raise ValueError("No substantial readable text found")
@@ -68,7 +71,7 @@ def extract_markdown(url, html):
     return title, body.strip()
 
 
-def format_doc(url, title, body):
+def format_doc(url: str, title: str, body: str) -> str:
     return (f"# {title}\n\nOriginal source: {url}\n"
             f"Collected on: {datetime.now(timezone.utc).date().isoformat()}\n\n{body}\n")
 
@@ -80,7 +83,7 @@ class IngestPlan:
     documents: list[Path]
 
 
-def prepare_inputs(args) -> IngestPlan:
+def prepare_inputs(args: argparse.Namespace) -> IngestPlan:
     """Discover and validate inputs without creating API or state resources."""
     folder_documents, folder_urls, folder_crawl_urls = (
         discover_import_folder(args.import_folder)
@@ -111,27 +114,32 @@ def prepare_inputs(args) -> IngestPlan:
     return IngestPlan(urls, crawl_targets, documents)
 
 
-def execute_sources(args, plan: IngestPlan, fetcher, webui, state) -> int:
+def execute_sources(args: argparse.Namespace, plan: IngestPlan,
+                    fetcher: SourceFetcher | None, webui: WebUI | None,
+                    state: IngestState | None) -> int:
     """Process prepared sources in the existing order and report failures."""
     urls, crawl_targets, documents = plan.urls, plan.crawl_targets, plan.documents
     failed = 0
+    source_fetcher = cast(SourceFetcher, fetcher)
 
-    def process(source, title, body, formatted):
+    def process(source: str, title: str, body: str, formatted: str) -> None:
         if args.dry_run:
             print(f"DRY RUN {source}: {title} ({len(body)} chars)")
         else:
-            print(f"{ingest_page(state, webui, source, title, body, formatted)} {source}")
+            result = ingest_page(cast(IngestState, state), cast(WebUI, webui),
+                                 source, title, body, formatted)
+            print(f"{result} {source}")
 
-    def explicit_pages(direct_urls):
+    def explicit_pages(direct_urls: list[str]) -> Iterator[CrawlItem]:
         for url in direct_urls:
             try:
-                yield url, fetcher.get(url), None
+                yield url, source_fetcher.get(url), None
             except SourceRejected as exc:
                 yield url, None, exc
 
     if args.sitemap:
         try:
-            urls = list(dict.fromkeys(urls + sitemap_urls(fetcher, args.sitemap, max_urls=args.max_pages)))
+            urls = list(dict.fromkeys(urls + sitemap_urls(source_fetcher, args.sitemap, max_urls=args.max_pages)))
         except (SourceRejected, ValueError, OSError) as exc:
             failed += 1
             print(f"FAILED sitemap: {exc}", file=sys.stderr)
@@ -139,24 +147,24 @@ def execute_sources(args, plan: IngestPlan, fetcher, webui, state) -> int:
     # URLs appearing in both lists are crawled once rather than fetched twice.
     direct_urls = [url for url in urls if url not in crawl_targets]
     crawl_seeds = [url for url in urls if url in crawl_targets]
-    sources = explicit_pages(direct_urls)
+    sources: Iterator[CrawlItem] = explicit_pages(direct_urls)
     if crawl_seeds:
         from itertools import chain
-        sources = chain(sources, crawl(fetcher, crawl_seeds, args.max_pages, args.max_depth))
+        sources = chain(sources, crawl(source_fetcher, crawl_seeds, args.max_pages, args.max_depth))
     if urls:
         for item in sources:
             try:
                 url, html, error = item
                 if error:
                     raise error
-                title, body = extract_markdown(url, html)
+                title, body = extract_markdown(url, cast(bytes, html))
                 process(url, title, body, format_doc(url, title, body))
             except (SourceRejected, ValueError, WebUIError, OSError) as exc:
                 failed += 1
                 print(f"FAILED web page: {exc}", file=sys.stderr)
     for remote_url in args.remote_pdf:
         try:
-            doc = read_remote_pdf(fetcher, remote_url)
+            doc = read_remote_pdf(source_fetcher, remote_url)
             process(doc.source, doc.title, doc.body, format_document(doc))
         except (SourceRejected, DocumentError, ValueError, WebUIError, OSError) as exc:
             failed += 1
@@ -171,7 +179,7 @@ def execute_sources(args, plan: IngestPlan, fetcher, webui, state) -> int:
     return 1 if failed else 0
 
 
-def run(argv=None):
+def run(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         plan = prepare_inputs(args)

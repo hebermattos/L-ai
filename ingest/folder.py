@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from itertools import islice
 
 from .documents import DocumentError
 from .manifests import read_url_lines
@@ -26,12 +27,12 @@ def discover_import_folder(directory: Path) -> tuple[list[Path], list[str], list
     crawl_urls: list[str] = []
     manifest_count = 0
     bytes_read = 0
-    entries = 0
+    # Stop discovery before sorting, so oversized trees are never materialized.
+    entries = list(islice(directory.rglob("*"), MAX_DISCOVERED_ENTRIES + 1))
+    if len(entries) > MAX_DISCOVERED_ENTRIES:
+        raise DocumentError("Import folder contains too many entries")
 
-    for path in sorted(directory.rglob("*")):
-        entries += 1
-        if entries > MAX_DISCOVERED_ENTRIES:
-            raise DocumentError("Import folder contains too many entries")
+    for path in sorted(entries):
         if path.is_symlink():
             raise DocumentError(f"Symbolic links are not allowed in import folders: {path}")
         if path.is_dir():

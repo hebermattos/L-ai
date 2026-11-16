@@ -1,9 +1,10 @@
 """Remote PDF handling without writing untrusted content to disk."""
 from urllib.parse import urlsplit
 from .documents import DocumentError, MAX_PDF_BYTES, MAX_PAGES, ExtractedDocument, extract_pdf_body
+from .contracts import SourceFetcher
 from .web import normalized_url, SourceRejected
 
-def read_remote_pdf(fetcher, url):
+def read_remote_pdf(fetcher: SourceFetcher, url: str) -> ExtractedDocument:
     safe = normalized_url(url, fetcher.domains)
     if not urlsplit(safe).path.lower().endswith(".pdf"):
         raise SourceRejected("Remote resource must have a .pdf suffix")
