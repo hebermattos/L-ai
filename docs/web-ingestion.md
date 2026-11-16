@@ -4,13 +4,13 @@ This guide documents **currently implemented functionality**: individual URLs, `
 
 ## Folder-based URL lists
 
-To ingest local PDF/EPUB files and HTTPS URLs from multiple `.txt` lists in one operation, use:
+To ingest PDF/EPUB files together with direct and recursive HTTPS sources in one operation, use:
 
 ```bash
 python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
 ```
 
-The command scans subfolders, reads UTF-8 URL lists (one URL per line), and enforces the same explicit host allowlist and network safeguards as `--urls-file`. Remove `--dry-run` after configuring Open WebUI credentials. See [document import](advanced-import.md) for limits and folder layout.
+The command scans subfolders and reads two UTF-8 manifest names: `urls.txt` fetches individual URLs without following links, while `crawl.txt` automatically performs bounded recursive crawling. All other `.txt` filenames are ignored. Each file contains one HTTPS URL per line. The crawler uses `--max-depth` and `--max-pages`, while both modes enforce the explicit host allowlist, `robots.txt`, and the existing network safeguards. Remove `--dry-run` after configuring Open WebUI credentials. See [document import](advanced-import.md) for limits and folder layout.
 
 ## Prerequisites
 
@@ -35,7 +35,7 @@ python -m ingest.cli --url https://example.org/library/index --allow-domain exam
 python -m ingest.cli --sitemap https://example.org/sitemap.xml --allow-domain example.org --max-pages 25 --dry-run
 ```
 
-The crawler follows internal links within the starting URL's directory. Depth is restricted to 0–3, with up to 100 attempted pages per run. Sitemap discovery supports bounded XML sitemap indexes and also requires an allowlisted domain. `--crawl` requires a seed from `--url` or `--urls-file`; `--sitemap` alone does not activate additional crawling.
+The crawler follows internal links within the starting URL's directory. Depth is restricted to 0–3, with up to 100 attempted pages per run. Sitemap discovery supports bounded XML sitemap indexes and also requires an allowlisted domain. `--crawl` applies to explicit `--url` or `--urls-file` seeds; `crawl.txt` within `--import-folder` activates recursion without the flag. `--sitemap` alone does not activate additional crawling.
 
 `--remote-pdf` imports **only the explicitly supplied PDF**, not all PDF links on a website:
 
