@@ -18,7 +18,7 @@ Set `L_AI_GPU=none` (or leave it unset), then run:
 
 ```bash
 bash scripts/setup.sh
-docker compose ps
+docker compose -f compose.yaml ps
 ```
 
 The Ollama API remains private on the Compose network, and the Open WebUI port remains bound to loopback.
@@ -63,7 +63,7 @@ Check the GPU's actual usage with host diagnostics and Ollama logs while running
 
 Change `L_AI_GPU` in `.env` and rerun `bash scripts/setup.sh`. Compose may recreate the Ollama container but the named Ollama and Open WebUI volumes are preserved. Avoid `docker compose down -v`.
 
-GPU mode does not eliminate VRAM limits: select model size, quantization, context, and concurrency accordingly. The default `L_AI_GPU=none` requires no vendor runtime and remains the portable fallback.
+For backend-preserving upgrades and routine Compose commands, see [operations and upgrades](reliability.md#operations-and-upgrades). For memory and model choices, see [model configuration](model-configuration.md).
 
 ## Upstream documentation
 
