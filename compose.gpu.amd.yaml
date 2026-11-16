@@ -1,0 +1,7 @@
+# Opt-in AMD ROCm support on compatible Linux hosts.
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri

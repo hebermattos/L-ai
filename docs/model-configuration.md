@@ -11,13 +11,14 @@ L_AI_MODEL=qwen3:4b-instruct
 L_AI_CONTEXT_LENGTH=8192
 OLLAMA_NUM_PARALLEL=1
 OLLAMA_MAX_LOADED_MODELS=1
+L_AI_GPU=none
 ```
 
 - `L_AI_MODEL` is the Ollama model reference to download and use as the basis of the `lai` assistant.
 - `L_AI_CONTEXT_LENGTH` sets the `PARAMETER num_ctx` value when the local assistant is created.
 - `OLLAMA_NUM_PARALLEL` and `OLLAMA_MAX_LOADED_MODELS` control Ollama runtime concurrency in Docker Compose.
 
-All four values have backward-compatible defaults. The installer only reads explicitly named settings from `.env`, validates the model reference and positive integer fields, and renders the default Modelfile into a temporary file. It does not modify the checked-in `config/Modelfile` or remove Docker volumes.
+All five values have backward-compatible defaults. The installer only reads explicitly named settings from `.env`, validates the model reference and positive integer fields, and renders the default Modelfile into a temporary file. It does not modify the checked-in `config/Modelfile` or remove Docker volumes.
 
 To apply configuration changes:
 
@@ -32,7 +33,7 @@ Changing the model may require a significant download and more memory or storage
 
 The provided setup script requires Bash, OpenSSL, Docker Compose v2, and access to a working Docker daemon. It is suitable for environments providing these tools, but the project does not claim that every operating system or GPU configuration has been tested.
 
-The default Compose stack does not request GPU devices. Ollama may use acceleration when a supported accelerator is correctly exposed to the container runtime. Configure drivers, passthrough, and runtime integration separately for your platform. CPU execution remains supported when the model fits available memory.
+The default Compose stack does not request GPU devices. Set `L_AI_GPU=nvidia` or `L_AI_GPU=amd` to use a dedicated optional GPU Compose overlay where supported. GPU drivers and container runtime passthrough must be configured separately. CPU execution remains supported when the model fits available memory. See [platform and GPU setup](platforms-and-gpu.md).
 
 ## Resource planning
 
