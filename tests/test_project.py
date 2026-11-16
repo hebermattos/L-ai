@@ -42,6 +42,10 @@ class ProjectConfigurationTests(unittest.TestCase):
         setup = (ROOT / "scripts/setup.sh").read_text(encoding="utf-8")
         self.assertIn("openssl rand -hex 32", setup)
         self.assertIn("ollama create lai", setup)
+        self.assertIn("L_AI_MODEL", setup)
+        self.assertIn("L_AI_CONTEXT_LENGTH", setup)
+        self.assertIn("OLLAMA_NUM_PARALLEL", setup)
+        self.assertIn("OLLAMA_MAX_LOADED_MODELS", setup)
 
 
 if __name__ == "__main__":

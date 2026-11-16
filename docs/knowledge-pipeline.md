@@ -1,6 +1,6 @@
 # Knowledge pipeline and evaluation
 
-This operational guide supplements the [README](../README.md). No feature here requires a GPU. On a 16 GB CPU-only machine, keep concurrency, batch sizes, and OCR work bounded.
+This operational guide supplements the [README](../README.md). A dedicated GPU is optional. Adjust model size, context, concurrency, batch sizes, and OCR workload to match available system resources; there is no universal RAM minimum for all models. See [model configuration](model-configuration.md).
 
 ## Workflow
 

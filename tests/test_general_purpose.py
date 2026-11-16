@@ -15,7 +15,7 @@ class GeneralPurposeTests(unittest.TestCase):
 
     def test_setup_creates_lai(self):
         setup = (ROOT / "scripts/setup.sh").read_text(encoding="utf-8")
-        self.assertIn("ollama create lai -f /config/Modelfile", setup)
+        self.assertIn("ollama create lai -f /tmp/lai-Modelfile", setup)
 
     def test_docs_use_current_assistant(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
