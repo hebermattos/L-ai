@@ -1,0 +1,10 @@
+# Opt-in NVIDIA GPU access; requires a configured NVIDIA container runtime.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
