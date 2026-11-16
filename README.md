@@ -40,13 +40,18 @@ Never commit credentials. The Docker setup does not install Python ingestion dep
 
 ## Import content
 
-**One-command folder import** (recursive PDF/EPUB discovery plus HTTPS URLs from any `.txt` files):
+**One-command folder import** (recursive PDF/EPUB discovery plus two explicit URL lists):
 
 ```bash
 python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
 ```
 
-Once the preview is correct and Open WebUI credentials are configured, repeat without `--dry-run` to index all supported content. Place PDF/EPUB documents and one or more UTF-8 `.txt` URL lists anywhere in the folder tree. Each URL list contains one HTTPS URL per line; blank lines and `#` comments are ignored. Lists are not indexed as document text. The existing URL allowlist, `robots.txt` rules, and document limits still apply. Use `--crawl` to follow permitted site links from the listed URLs.
+Once the preview is correct and Open WebUI credentials are configured, repeat without `--dry-run` to index all supported content. Place PDF/EPUB documents and these optional UTF-8 manifests anywhere under the import folder:
+
+- `urls.txt`: fetch each listed HTTPS page exactly once (no link traversal).
+- `crawl.txt`: recursively follow permitted internal HTML links from each listed HTTPS seed using `--max-depth` and `--max-pages`.
+
+Both manifests accept one URL per line, blank lines, and `#` comments. Other `.txt` files are ignored in folder import. The crawler starts automatically for `crawl.txt` entries; **do not add `--crawl`** for folder manifests. The existing `--crawl` flag remains supported for explicit `--url` and `--urls-file` inputs. If a URL appears in both manifests, it is crawled once. URLs require explicit `--allow-domain` authorization and respect `robots.txt` and other safety limits.
 
 
 **Individual web pages** from an explicitly authorized domain:
