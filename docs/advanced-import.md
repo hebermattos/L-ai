@@ -4,13 +4,13 @@ L-ai can recursively follow internal HTML links on authorized websites and impor
 
 ## Single-command folder import
 
-Use `--import-folder` to recursively discover PDF/EPUB files and URL lists in a single directory:
+Use `--import-folder` to recursively discover PDF/EPUB files plus separate direct-fetch and crawler URL lists in a single directory:
 
 ```bash
 python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
 ```
 
-Each `.txt` file in the folder tree is interpreted as a UTF-8 URL list (one HTTPS URL per line with optional blank lines and `#` comments). PDF/EPUB files are extracted locally. URLs must be explicitly authorized with `--allow-domain`; existing network restrictions and `robots.txt` checks remain in force. The command uses the normal Open WebUI credentials when `--dry-run` is removed. Optional `--crawl`, `--max-depth`, `--max-pages`, `--max-documents`, and `--ocr` flags remain available. Symbolic links are rejected. At most 20 URL lists (64 KiB combined) and 1,000 directory entries are examined per run; other file types are ignored. Default URL and document limits still apply.
+Only files named `urls.txt` (direct page fetches) and `crawl.txt` (recursive crawler seeds) are interpreted as UTF-8 URL lists, including in subdirectories. Other `.txt` files are ignored. Each list contains one HTTPS URL per line, with optional blank lines and `#` comments. The crawler activates automatically for `crawl.txt`; `--max-depth` and `--max-pages` govern recursion. URLs shared by both lists are crawled only once. PDF/EPUB files are extracted locally. URLs must be explicitly authorized with `--allow-domain`; existing network restrictions and `robots.txt` checks remain in force. The command uses the normal Open WebUI credentials when `--dry-run` is removed. Optional `--max-depth`, `--max-pages`, `--max-documents`, and `--ocr` flags remain available. `--crawl` continues to apply to explicit `--url` / `--urls-file` inputs, not to `urls.txt` entries discovered in the import folder. Symbolic links are rejected. At most 20 recognized URL lists (64 KiB combined) and 1,000 directory entries are examined per run; other file types are ignored. Default URL and document limits still apply.
 
 Example folder layout:
 
@@ -19,8 +19,8 @@ knowledge-to-import/
 ├── books/
 │   ├── manual.pdf
 │   └── reference.epub
-├── resources.txt
-└── more-urls.txt
+├── urls.txt                 # Direct page fetching
+└── crawl.txt                # Recursive crawling
 ```
 
 ## Recursive crawler

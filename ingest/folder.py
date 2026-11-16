@@ -11,17 +11,18 @@ MAX_MANIFEST_BYTES = 65536
 MAX_DISCOVERED_ENTRIES = 1000
 
 
-def discover_import_folder(directory: Path) -> tuple[list[Path], list[str]]:
-    """Recursively find PDF/EPUB files and .txt URL manifests.
+def discover_import_folder(directory: Path) -> tuple[list[Path], list[str], list[str]]:
+    """Find PDF/EPUB files, direct URL lists, and recursive crawl seeds.
 
-    TXT files are treated as URL lists, not indexed as document text.
-    Existing URL validation and allowlisting are applied by the CLI.
+    Only urls.txt and crawl.txt are interpreted as manifests. All URL safety
+    checks (including allowlisting) are performed by the CLI.
     """
     if directory.is_symlink() or not directory.is_dir():
         raise DocumentError("Import folder must be a real directory")
 
     documents: list[Path] = []
     urls: list[str] = []
+    crawl_urls: list[str] = []
     manifest_count = 0
     bytes_read = 0
     entries = 0
@@ -39,7 +40,7 @@ def discover_import_folder(directory: Path) -> tuple[list[Path], list[str]]:
         suffix = path.suffix.lower()
         if suffix in {".pdf", ".epub"}:
             documents.append(path)
-        elif suffix == ".txt":
+        elif path.name.lower() in {"urls.txt", "crawl.txt"}:
             manifest_count += 1
             if manifest_count > MAX_MANIFESTS:
                 raise DocumentError("Too many URL list files (maximum 20)")
@@ -51,7 +52,8 @@ def discover_import_folder(directory: Path) -> tuple[list[Path], list[str]]:
                 lines = path.read_text(encoding="utf-8").splitlines()
             except UnicodeError as exc:
                 raise DocumentError(f"URL list is not UTF-8: {path}") from exc
-            urls.extend(line.strip() for line in lines
-                        if line.strip() and not line.lstrip().startswith("#"))
+            target = urls if path.name.lower() == "urls.txt" else crawl_urls
+            target.extend(line.strip() for line in lines
+                          if line.strip() and not line.lstrip().startswith("#"))
 
-    return documents, urls
+    return documents, urls, crawl_urls
