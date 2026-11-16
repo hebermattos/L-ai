@@ -52,7 +52,10 @@ Rerunning the same command can resume pending operations. Known risks: a crash a
 python -m unittest discover -s tests -v
 ```
 
-CI checks Compose configuration, shell syntax, and Python tests. Mocked API tests **do not launch** Ollama or Open WebUI.
+CI checks Compose configuration, all Bash scripts with syntax checks and ShellCheck,
+and Python tests on Linux, Windows, and macOS. POSIX script execution tests run on
+Linux and macOS; Windows skips those tests explicitly. Symlink tests are skipped
+only when the Windows runner reports missing symlink privileges. Mocked API tests **do not launch** Ollama or Open WebUI.
 
 ## Optional live integration test (disposable knowledge base only)
 
@@ -89,11 +92,14 @@ python -m ruff check ingest tests
 python -m mypy
 python -m unittest discover -s tests -v
 python -m compileall -q ingest tests
+# In a POSIX Bash environment:
+for script in scripts/*.sh; do bash -n "$script"; done
+shellcheck scripts/*.sh
 ```
 
-Ruff checks unused imports and other Python errors. Strict type checking starts with
-`contracts.py`, `state.py`, `service.py`, and `manifests.py`; extend its scope as other
-modules gain complete annotations. Development tools are separate from runtime dependencies.
+Ruff checks unused imports and other Python errors. Strict type checking covers
+`contracts.py`, `state.py`, `service.py`, `manifests.py`, `cli.py`, `crawler.py`,
+`sitemap.py`, and `webui.py`; extend its scope as other modules gain complete annotations. Development tools are separate from runtime dependencies.
 
 The CLI separates input preparation from source execution. Local and remote PDFs
 share page-text extraction, while keeping their existing OCR policies, metadata
@@ -105,3 +111,14 @@ Behavior tests cover CLI output and exit codes, document formatting, source orde
 body hashes, filenames, and the existing SQLite schema. Network timing tests inject
 clocks and sleep functions; production defaults retain the existing pauses and timeouts.
 The live Open WebUI test remains opt-in and requires a disposable knowledge base.
+
+
+Folder discovery stops after the first entry beyond the 1,000-entry limit, before
+sorting, while accepted folders retain their previous sorted import order. Sitemap
+queues deduplicate both seeds and discovered maps before enqueueing, retaining the
+first-discovery order and the existing unique-map and page budgets.
+
+Pagination tests cover array and object responses, `items` and `files`, `has_more`,
+`total`, missing files, malformed payloads, and exhausted pagination limits. Migration
+tests inject failures after each transactional schema/data operation and exercise a
+real constraint violation, then verify unchanged legacy schema/data and successful retry.

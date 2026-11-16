@@ -1,6 +1,6 @@
 """Observable ingestion contracts to preserve during internal refactoring."""
 
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -181,30 +181,29 @@ class StateContracts(unittest.TestCase):
     def test_hash_filename_result_and_schema(self):
         with TemporaryDirectory() as temp:
             path = Path(temp) / "state.sqlite3"
-            state = IngestState(path)
-            self.addCleanup(state.close)
-            api = MagicMock(knowledge_id="kb")
-            api.upload.return_value = "file-id"
-            url, body, document = "https://example.org/a", "body", "# Title\nbody"
-            self.assertEqual(
-                ingest_page(state, api, url, "Title", body, document), "IMPORTED"
-            )
-            filename = hashlib.sha256(url.encode("utf-8")).hexdigest()[:20] + ".md"
-            api.upload.assert_called_once_with(filename, document)
-            digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
-            self.assertEqual(
-                state.get(url, "kb"),
-                {"hash": digest, "file_id": "file-id", "status": "ready"},
-            )
-            with sqlite3.connect(path) as db:
+            with IngestState(path) as state:
+                api = MagicMock(knowledge_id="kb")
+                api.upload.return_value = "file-id"
+                url, body, document = "https://example.org/a", "body", "# Title\nbody"
                 self.assertEqual(
-                    [r[1] for r in db.execute("PRAGMA table_info(pages)")],
-                    ["url", "knowledge_id", "hash", "file_id", "status"],
+                    ingest_page(state, api, url, "Title", body, document), "IMPORTED"
                 )
-            self.assertEqual(
-                ingest_page(state, api, url, "Title", body, document), "UNCHANGED"
-            )
-            self.assertEqual(
-                ingest_page(state, api, url + "/copy", "Title", body, document),
-                "DUPLICATE CONTENT",
-            )
+                filename = hashlib.sha256(url.encode("utf-8")).hexdigest()[:20] + ".md"
+                api.upload.assert_called_once_with(filename, document)
+                digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+                self.assertEqual(
+                    state.get(url, "kb"),
+                    {"hash": digest, "file_id": "file-id", "status": "ready"},
+                )
+                with closing(sqlite3.connect(path)) as db:
+                    self.assertEqual(
+                        [r[1] for r in db.execute("PRAGMA table_info(pages)")],
+                        ["url", "knowledge_id", "hash", "file_id", "status"],
+                    )
+                self.assertEqual(
+                    ingest_page(state, api, url, "Title", body, document), "UNCHANGED"
+                )
+                self.assertEqual(
+                    ingest_page(state, api, url + "/copy", "Title", body, document),
+                    "DUPLICATE CONTENT",
+                )

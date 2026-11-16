@@ -1,7 +1,11 @@
 """Local Open WebUI upload, processing, association and update verification."""
+from __future__ import annotations
+
 import io
 import time
 from collections.abc import Callable
+from types import TracebackType
+from typing import Any
 from urllib.parse import urlsplit
 import requests
 
@@ -9,9 +13,9 @@ class WebUIError(RuntimeError):
     pass
 
 class WebUI:
-    def __init__(self, base_url, api_key, knowledge_id, *,
+    def __init__(self, base_url: str, api_key: str, knowledge_id: str, *,
                  clock: Callable[[], float] | None = None,
-                 sleep: Callable[[float], None] | None = None):
+                 sleep: Callable[[float], None] | None = None) -> None:
         base = base_url.rstrip('/')
         p = urlsplit(base)
         if (p.scheme != 'http' or p.hostname not in ('localhost','127.0.0.1')
@@ -28,7 +32,7 @@ class WebUI:
         self.session.trust_env = False
         self.session.headers.update({'Authorization': f'Bearer {api_key}', 'Accept':'application/json'})
 
-    def _request(self, method, endpoint, **kwargs):
+    def _request(self, method: str, endpoint: str, **kwargs: Any) -> Any:
         try:
             response = self.session.request(method, self.base+endpoint, timeout=30,
                                             allow_redirects=False, **kwargs)
@@ -41,7 +45,7 @@ class WebUI:
         except ValueError as exc:
             raise WebUIError("Open WebUI returned invalid JSON") from exc
 
-    def upload(self, name, markdown):
+    def upload(self, name: str, markdown: str) -> str:
         data = self._request('POST','/api/v1/files/', files={
             'file':(name, io.BytesIO(markdown.encode('utf-8')), 'text/markdown')})
         file_id = data.get('id') if isinstance(data,dict) else None
@@ -49,7 +53,7 @@ class WebUI:
             raise WebUIError("Upload response lacks file ID")
         return file_id
 
-    def wait_indexed(self, file_id, seconds=180):
+    def wait_indexed(self, file_id: str, seconds: float = 180) -> None:
         deadline = (self._clock or time.monotonic)()+seconds
         while (self._clock or time.monotonic)()<deadline:
             info = self._request('GET',f'/api/v1/files/{file_id}/process/status')
@@ -61,10 +65,11 @@ class WebUI:
             (self._sleep or time.sleep)(2)
         raise WebUIError("Timed out waiting for file processing")
 
-    def knowledge_has_file(self, file_id, max_pages=100):
+    def knowledge_has_file(self, file_id: str, max_pages: int = 100) -> bool:
         for page in range(1,max_pages+1):
             data = self._request('GET',f'/api/v1/knowledge/{self.knowledge_id}/files',
                                  params={'page':page})
+            files: object
             if isinstance(data,list):
                 files = data
             elif isinstance(data,dict):
@@ -87,25 +92,25 @@ class WebUI:
             return False
         raise WebUIError("Exceeded Knowledge pagination limit")
 
-    def add_to_knowledge(self, file_id):
+    def add_to_knowledge(self, file_id: str) -> Any:
         """Backwards compatible P0 API."""
         return self._request('POST',f'/api/v1/knowledge/{self.knowledge_id}/file/add',
                              json={'file_id':file_id})
 
-    def ensure_linked(self, file_id):
+    def ensure_linked(self, file_id: str) -> None:
         if self.knowledge_has_file(file_id):
             return
         self.add_to_knowledge(file_id)
         if not self.knowledge_has_file(file_id):
             raise WebUIError("Knowledge membership not confirmed")
 
-    def verify_content(self, file_id, expected):
+    def verify_content(self, file_id: str, expected: str) -> None:
         data = self._request('GET',f'/api/v1/files/{file_id}/data/content')
         actual = data.get('content') if isinstance(data,dict) else data
         if actual != expected:
             raise WebUIError("Remote content differs from expected update")
 
-    def update_content(self, file_id, markdown):
+    def update_content(self, file_id: str, markdown: str) -> None:
         # Open WebUI reprocesses KB vectors for content updates. On failures
         # keep the local operation pending rather than marking it complete.
         self._request('POST',f'/api/v1/files/{file_id}/data/content/update',
@@ -114,11 +119,12 @@ class WebUI:
         if not self.knowledge_has_file(file_id):
             raise WebUIError("Updated file is no longer linked to Knowledge")
 
-    def close(self):
+    def close(self) -> None:
         self.session.close()
 
-    def __enter__(self):
+    def __enter__(self) -> WebUI:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 exc_value: BaseException | None, traceback: TracebackType | None) -> None:
         self.close()

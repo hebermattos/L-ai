@@ -10,6 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@unittest.skipUnless(os.name == "posix", "Setup scripts require a POSIX Bash environment")
 class ConfigurableModelSetupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

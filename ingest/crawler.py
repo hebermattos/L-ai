@@ -1,27 +1,30 @@
 """Bounded, same-site link discovery; never bypass SafeFetcher's SSRF/robots policies."""
 from collections import deque
+from collections.abc import Iterator
 from html.parser import HTMLParser
+from typing import cast
 from urllib.parse import urljoin, urlsplit
 
+from .contracts import CrawlItem, SourceFetcher
 from .web import SourceRejected, normalized_url
 
 
 class LinkParser(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.links = []
+        self.links: list[str] = []
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "a":
             return
         props = dict(attrs)
-        if "nofollow" in props.get("rel", "").lower().split():
+        if "nofollow" in cast(str, props.get("rel", "")).lower().split():
             return
         if props.get("href"):
-            self.links.append(props["href"])
+            self.links.append(cast(str, props["href"]))
 
 
-def discover_links(html: bytes, parent: str, domains: set[str], path_prefix: str):
+def discover_links(html: bytes, parent: str, domains: set[str], path_prefix: str) -> list[str]:
     parser = LinkParser()
     parser.feed(html.decode("utf-8", "replace"))
     found = []
@@ -44,7 +47,8 @@ def discover_links(html: bytes, parent: str, domains: set[str], path_prefix: str
     return found
 
 
-def crawl(fetcher, seeds: list[str], max_pages: int = 25, max_depth: int = 2):
+def crawl(fetcher: SourceFetcher, seeds: list[str], max_pages: int = 25,
+          max_depth: int = 2) -> Iterator[CrawlItem]:
     """Yield (url, html, error); errors are reported without killing the crawl.
 
     Each seed is restricted to its exact host and starting URL's directory;
@@ -52,7 +56,7 @@ def crawl(fetcher, seeds: list[str], max_pages: int = 25, max_depth: int = 2):
     """
     if not 1 <= max_pages <= 100 or not 0 <= max_depth <= 3:
         raise ValueError("max_pages must be 1..100 and max_depth 0..3")
-    pending = deque()
+    pending: deque[tuple[str, int, str | None, str]] = deque()
     seen = set()
     for seed in seeds:
         p = urlsplit(seed)

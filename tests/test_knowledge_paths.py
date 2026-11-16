@@ -1,4 +1,5 @@
 """Keep English-facing paths and safe upgrades covered by tests."""
+import os
 import subprocess
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ class KnowledgePathTests(unittest.TestCase):
         self.assertIn("Original source:", result)
         self.assertIn("Collected on:", result)
 
+    @unittest.skipUnless(os.name == "posix", "Migration script requires a POSIX Bash environment")
     def test_migration_does_not_overwrite_existing_destination(self):
         # Test the migration script in an isolated copied directory layout.
         with tempfile.TemporaryDirectory() as temp:
@@ -35,6 +37,7 @@ class KnowledgePathTests(unittest.TestCase):
             self.assertEqual((root / "biblioteca/.web-ingest.sqlite3").read_text(), "legacy")
             self.assertEqual((root / "knowledge/.web-ingest.sqlite3").read_text(), "new")
 
+    @unittest.skipUnless(os.name == "posix", "Migration script requires a POSIX Bash environment")
     def test_migration_preserves_existing_state(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -97,7 +97,12 @@ class DocumentTests(unittest.TestCase):
         original.write_bytes(b"not a pdf")
         (self.root / "other.txt").write_text("content")
         link = self.root / "link.pdf"
-        link.symlink_to(original)
+        try:
+            link.symlink_to(original)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows runner lacks symbolic-link privileges")
+            raise
         with self.assertRaises(DocumentError):
             file_paths([link], None)
         with self.assertRaises(DocumentError):
