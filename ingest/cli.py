@@ -32,7 +32,7 @@ def parse_args(argv=None):
     p.add_argument("--max-pages", type=int, default=25)
     p.add_argument("--file", type=Path, action="append", default=[])
     p.add_argument("--directory", type=Path)
-    p.add_argument("--import-folder", type=Path, help="Recursively import PDF/EPUB files and TXT URL lists")
+    p.add_argument("--import-folder", type=Path, help="Import PDF/EPUB files and separate urls.txt/crawl.txt URL lists")
     p.add_argument("--max-documents", type=int, default=50)
     p.add_argument("--ocr", action="store_true", help="Use local Tesseract only for scanned PDF pages")
     p.add_argument("--knowledge-id", default=os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", ""))
@@ -74,9 +74,18 @@ def format_doc(url, title, body):
 def run(argv=None):
     args = parse_args(argv)
     try:
-        folder_documents, folder_urls = (discover_import_folder(args.import_folder)
-                                         if args.import_folder else ([], []))
-        urls = list_urls(args, folder_urls)
+        folder_documents, folder_urls, folder_crawl_urls = (
+            discover_import_folder(args.import_folder)
+            if args.import_folder else ([], [], []))
+        # Validate all seeds together to enforce one shared URL limit.
+        urls = list_urls(args, folder_urls + folder_crawl_urls)
+        crawl_targets = {
+            normalized_url(url, set(args.allow_domain)) for url in folder_crawl_urls
+        }
+        manual_crawl_seeds = set(list_urls(args)) if args.crawl else set()
+        if args.crawl and not manual_crawl_seeds:
+            raise ValueError("--crawl requires a seed from --url or --urls-file")
+        crawl_targets.update(manual_crawl_seeds)
         documents = file_paths(args.file + folder_documents, args.directory, args.max_documents)
         if args.sitemap or args.remote_pdf:
             if not args.allow_domain:
@@ -87,10 +96,8 @@ def run(argv=None):
             raise ValueError("Invalid sitemap max-pages")
         if not urls and not documents and not args.sitemap and not args.remote_pdf:
             raise ValueError("Provide --url, --urls-file, --file, --directory, or --import-folder with supported content")
-        if args.crawl and not urls:
-            raise ValueError("--crawl requires an HTTPS seed")
-        if args.crawl and len(urls) > args.max_pages:
-            raise ValueError("Seed count exceeds --max-pages")
+        if len(crawl_targets) > args.max_pages:
+            raise ValueError("Crawler seed count exceeds --max-pages")
         if not 1 <= args.max_pages <= 100 or not 0 <= args.max_depth <= 3:
             raise ValueError("--max-pages must be 1..100 and --max-depth 0..3")
     except (ValueError, OSError) as exc:
@@ -112,8 +119,8 @@ def run(argv=None):
         else:
             print(f"{ingest_page(state, webui, source, title, body, formatted)} {source}")
 
-    def explicit_pages():
-        for url in urls:
+    def explicit_pages(direct_urls):
+        for url in direct_urls:
             try:
                 yield url, fetcher.get(url), None
             except SourceRejected as exc:
@@ -126,9 +133,15 @@ def run(argv=None):
             except (SourceRejected, ValueError, OSError) as exc:
                 failed += 1
                 print(f"FAILED sitemap: {exc}", file=sys.stderr)
+        # The two input lists have independent behavior within the same run.
+        # URLs appearing in both lists are crawled once rather than fetched twice.
+        direct_urls = [url for url in urls if url not in crawl_targets]
+        crawl_seeds = [url for url in urls if url in crawl_targets]
+        sources = explicit_pages(direct_urls)
+        if crawl_seeds:
+            from itertools import chain
+            sources = chain(sources, crawl(fetcher, crawl_seeds, args.max_pages, args.max_depth))
         if urls:
-            sources = (crawl(fetcher, urls, args.max_pages, args.max_depth)
-                       if args.crawl else explicit_pages())
             for item in sources:
                 try:
                     url, html, error = item
