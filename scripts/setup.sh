@@ -42,6 +42,19 @@ num_parallel="${OLLAMA_NUM_PARALLEL:-$(read_env_setting OLLAMA_NUM_PARALLEL)}"
 num_parallel="${num_parallel:-1}"
 max_loaded_models="${OLLAMA_MAX_LOADED_MODELS:-$(read_env_setting OLLAMA_MAX_LOADED_MODELS)}"
 max_loaded_models="${max_loaded_models:-1}"
+gpu_backend="${L_AI_GPU:-$(read_env_setting L_AI_GPU)}"
+gpu_backend="${gpu_backend:-none}"
+
+# Select an optional GPU overlay while retaining the CPU-compatible default.
+case "$gpu_backend" in
+  none) ;;
+  nvidia) export COMPOSE_FILE="compose.yaml:compose.gpu.nvidia.yaml" ;;
+  amd) export COMPOSE_FILE="compose.yaml:compose.gpu.amd.yaml" ;;
+  *)
+    echo "L_AI_GPU must be one of: none, nvidia, amd." >&2
+    exit 1
+    ;;
+esac
 
 if [[ ! "$model" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$ ]]; then
   echo "L_AI_MODEL must be a valid Ollama model reference." >&2
