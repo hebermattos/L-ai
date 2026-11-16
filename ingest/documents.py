@@ -69,6 +69,39 @@ def _check_epub_archive(path: Path):
         raise DocumentError("EPUB is not a valid ZIP container") from exc
 
 
+def extract_pdf_body(doc, *, ocr: bool = False,
+                     text_limit_error: str = "PDF extracted text is too large") -> str:
+    """Extract numbered nonempty pages with shared text and optional OCR bounds."""
+    blocks = []
+    total = 0
+    for i, page in enumerate(doc):
+        text = page.get_text("text").strip()
+        if not text and ocr:
+            # Optional CPU-only OCR, one page at a time with strict bounds.
+            if i >= 100:
+                raise DocumentError("OCR limited to 100 pages")
+            pix = page.get_pixmap(dpi=120, alpha=False)
+            if len(pix.samples) > 35 * 1024 * 1024:
+                raise DocumentError("OCR bitmap exceeds memory budget")
+            try:
+                result = subprocess.run(
+                    ["tesseract", "stdin", "stdout", "-l", "por+eng"],
+                    input=pix.tobytes("png"), capture_output=True,
+                    timeout=45, check=True,
+                )
+                text = result.stdout.decode("utf-8", "replace").strip()
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise DocumentError("Tesseract OCR failed or language pack missing") from exc
+        if not text:
+            continue
+        total += len(text)
+        if total > MAX_TEXT_CHARS:
+            raise DocumentError(text_limit_error)
+        blocks.append(f"## Page {i+1}\n\n{text}")
+    body = "\n\n".join(blocks)
+    return body
+
+
 def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
     path = path.resolve()
     size = path.stat().st_size
@@ -84,33 +117,7 @@ def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
             meta = doc.metadata or {}
             title = (meta.get("title") or path.stem).strip()
             author = (meta.get("author") or "").strip()
-            blocks = []
-            total = 0
-            for i, page in enumerate(doc):
-                text = page.get_text("text").strip()
-                if not text and ocr:
-                    # Optional CPU-only OCR, one page at a time with strict bounds.
-                    if i >= 100:
-                        raise DocumentError("OCR limited to 100 pages")
-                    pix = page.get_pixmap(dpi=120, alpha=False)
-                    if len(pix.samples) > 35 * 1024 * 1024:
-                        raise DocumentError("OCR bitmap exceeds memory budget")
-                    try:
-                        result = subprocess.run(
-                            ["tesseract", "stdin", "stdout", "-l", "por+eng"],
-                            input=pix.tobytes("png"), capture_output=True,
-                            timeout=45, check=True,
-                        )
-                        text = result.stdout.decode("utf-8", "replace").strip()
-                    except (OSError, subprocess.SubprocessError) as exc:
-                        raise DocumentError("Tesseract OCR failed or language pack missing") from exc
-                if not text:
-                    continue
-                total += len(text)
-                if total > MAX_TEXT_CHARS:
-                    raise DocumentError("PDF extracted text is too large")
-                blocks.append(f"## Page {i+1}\n\n{text}")
-            body = "\n\n".join(blocks)
+            body = extract_pdf_body(doc, ocr=ocr)
     elif path.suffix.lower() == ".epub":
         if size > MAX_EPUB_BYTES:
             raise DocumentError("EPUB exceeds 20 MiB")

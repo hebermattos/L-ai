@@ -1,7 +1,10 @@
 """Resumable ingest workflow; save remote IDs before processing and linking."""
 import hashlib
 
-def ingest_page(state, webui, url, title, body, document):
+from .contracts import IngestResult, KnowledgeClient, StateStore
+
+def ingest_page(state: StateStore, webui: KnowledgeClient, url: str, title: str,
+                body: str, document: str) -> IngestResult:
     kb = webui.knowledge_id
     digest = hashlib.sha256(body.encode('utf-8')).hexdigest()
     old = state.get(url, kb)

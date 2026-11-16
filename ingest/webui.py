@@ -1,6 +1,7 @@
 """Local Open WebUI upload, processing, association and update verification."""
 import io
 import time
+from collections.abc import Callable
 from urllib.parse import urlsplit
 import requests
 
@@ -8,7 +9,9 @@ class WebUIError(RuntimeError):
     pass
 
 class WebUI:
-    def __init__(self, base_url, api_key, knowledge_id):
+    def __init__(self, base_url, api_key, knowledge_id, *,
+                 clock: Callable[[], float] | None = None,
+                 sleep: Callable[[float], None] | None = None):
         base = base_url.rstrip('/')
         p = urlsplit(base)
         if (p.scheme != 'http' or p.hostname not in ('localhost','127.0.0.1')
@@ -17,6 +20,8 @@ class WebUI:
             raise ValueError("Only http://localhost:3000 (or 127.0.0.1) is allowed")
         if not api_key or not knowledge_id or not all(c.isalnum() or c in '-_' for c in knowledge_id):
             raise ValueError("Valid API key and Knowledge ID are required")
+        self._clock = clock
+        self._sleep = sleep
         self.base = base
         self.knowledge_id = knowledge_id
         self.session = requests.Session()
@@ -45,15 +50,15 @@ class WebUI:
         return file_id
 
     def wait_indexed(self, file_id, seconds=180):
-        deadline = time.monotonic()+seconds
-        while time.monotonic()<deadline:
+        deadline = (self._clock or time.monotonic)()+seconds
+        while (self._clock or time.monotonic)()<deadline:
             info = self._request('GET',f'/api/v1/files/{file_id}/process/status')
             status = info.get('status') if isinstance(info,dict) else None
             if status == 'completed':
                 return
             if status == 'failed':
                 raise WebUIError(f"Processing failed: {str(info.get('error'))[:300]}")
-            time.sleep(2)
+            (self._sleep or time.sleep)(2)
         raise WebUIError("Timed out waiting for file processing")
 
     def knowledge_has_file(self, file_id, max_pages=100):
@@ -108,3 +113,12 @@ class WebUI:
         self.verify_content(file_id,markdown)
         if not self.knowledge_has_file(file_id):
             raise WebUIError("Updated file is no longer linked to Knowledge")
+
+    def close(self):
+        self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()

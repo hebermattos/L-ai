@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from ingest.cli import list_urls, extract_markdown
+from ingest.cli import list_urls
 from ingest.web import SafeFetcher, SourceRejected, normalized_url, public_addresses
 from ingest.webui import WebUI
 

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from ingest.cli import list_urls, run
+from ingest.cli import run
 from ingest.crawler import crawl, discover_links
 from ingest.documents import DocumentError, file_paths, format_document, read_document
 
