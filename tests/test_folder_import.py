@@ -34,9 +34,9 @@ class FolderImportTests(TestCase):
         with TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "urls.txt").write_text(
-                "https://example.org/direct\\n", encoding="utf-8")
+                "https://example.org/direct\n", encoding="utf-8")
             (root / "crawl.txt").write_text(
-                "https://example.org/docs/index\\n", encoding="utf-8")
+                "https://example.org/docs/index\n", encoding="utf-8")
             (root / "notes.txt").write_text(
                 "This is not a URL manifest", encoding="utf-8")
             documents, direct, recursive = discover_import_folder(root)
@@ -52,9 +52,9 @@ class FolderImportTests(TestCase):
         with TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "urls.txt").write_text(
-                "https://example.org/direct\\n", encoding="utf-8")
+                "https://example.org/direct\n", encoding="utf-8")
             (root / "crawl.txt").write_text(
-                "https://example.org/docs/start\\n", encoding="utf-8")
+                "https://example.org/docs/start\n", encoding="utf-8")
             fetcher.return_value.get.return_value = b"<html>Direct page</html>"
             crawler.return_value = iter([
                 ("https://example.org/docs/start", b"<html>Crawled page</html>", None)
@@ -79,8 +79,8 @@ class FolderImportTests(TestCase):
         with TemporaryDirectory() as temp:
             root = Path(temp)
             url = "https://example.org/shared"
-            (root / "urls.txt").write_text(url + "\\n", encoding="utf-8")
-            (root / "crawl.txt").write_text(url + "\\n", encoding="utf-8")
+            (root / "urls.txt").write_text(url + "\n", encoding="utf-8")
+            (root / "crawl.txt").write_text(url + "\n", encoding="utf-8")
             crawler.return_value = iter([(url, b"<html>Crawled</html>", None)])
             self.assertEqual(run([
                 "--import-folder", str(root), "--allow-domain", "example.org",
@@ -93,7 +93,7 @@ class FolderImportTests(TestCase):
         with TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "crawl.txt").write_text(
-                "https://outside.test/docs\\n", encoding="utf-8")
+                "https://outside.test/docs\n", encoding="utf-8")
             self.assertEqual(run([
                 "--import-folder", str(root), "--allow-domain", "example.org",
                 "--dry-run"]), 2)
