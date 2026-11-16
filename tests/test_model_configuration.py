@@ -90,7 +90,7 @@ class ConfigurableModelSetupTests(unittest.TestCase):
 
     def test_env_file_backend_selection(self):
         with (self.root / ".env").open("a", encoding="utf-8") as stream:
-            stream.write("L_AI_GPU=nvidia\\n")
+            stream.write("L_AI_GPU=nvidia\n")
         result = self.execute()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("COMPOSE_FILE=compose.yaml:compose.gpu.nvidia.yaml", self.log.read_text())
