@@ -20,13 +20,83 @@ class FolderImportTests(TestCase):
             (root / "urls.txt").write_text(
                 "# sample\nhttps://example.org/a\nhttps://example.org/a\n",
                 encoding="utf-8")
-            (root / "nested/more.txt").write_text(
+            (root / "nested/urls.txt").write_text(
                 "https://example.org/b\n", encoding="utf-8")
-            docs, urls = discover_import_folder(root)
+            docs, urls, crawl_urls = discover_import_folder(root)
+            self.assertEqual(crawl_urls, [])
             self.assertEqual({p.name for p in docs}, {"a.pdf", "b.epub"})
             args = parse_args(["--import-folder", str(root), "--allow-domain", "example.org"])
             self.assertEqual(list_urls(args, urls),
                              ["https://example.org/b", "https://example.org/a"])
+
+
+    def test_distinct_normal_and_recursive_manifests(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "urls.txt").write_text(
+                "https://example.org/direct\\n", encoding="utf-8")
+            (root / "crawl.txt").write_text(
+                "https://example.org/docs/index\\n", encoding="utf-8")
+            (root / "notes.txt").write_text(
+                "This is not a URL manifest", encoding="utf-8")
+            documents, direct, recursive = discover_import_folder(root)
+            self.assertEqual(documents, [])
+            self.assertEqual(direct, ["https://example.org/direct"])
+            self.assertEqual(recursive, ["https://example.org/docs/index"])
+
+    @patch("ingest.cli.crawl")
+    @patch("ingest.cli.extract_markdown", return_value=("Example", "Some content " * 12))
+    @patch("ingest.cli.SafeFetcher")
+    def test_mixed_import_crawls_only_crawl_manifest(
+            self, fetcher, extract, crawler):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "urls.txt").write_text(
+                "https://example.org/direct\\n", encoding="utf-8")
+            (root / "crawl.txt").write_text(
+                "https://example.org/docs/start\\n", encoding="utf-8")
+            fetcher.return_value.get.return_value = b"<html>Direct page</html>"
+            crawler.return_value = iter([
+                ("https://example.org/docs/start", b"<html>Crawled page</html>", None)
+            ])
+            result = run([
+                "--import-folder", str(root), "--allow-domain", "example.org",
+                "--dry-run", "--max-depth", "2"
+            ])
+            self.assertEqual(result, 0)
+            crawler.assert_called_once_with(
+                fetcher.return_value,
+                ["https://example.org/docs/start"], 25, 2)
+            fetcher.return_value.get.assert_called_once_with(
+                "https://example.org/direct")
+            self.assertEqual(extract.call_count, 2)
+
+    @patch("ingest.cli.crawl")
+    @patch("ingest.cli.extract_markdown", return_value=("Example", "Some content " * 12))
+    @patch("ingest.cli.SafeFetcher")
+    def test_duplicate_across_manifests_is_only_crawled(
+            self, fetcher, extract, crawler):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            url = "https://example.org/shared"
+            (root / "urls.txt").write_text(url + "\\n", encoding="utf-8")
+            (root / "crawl.txt").write_text(url + "\\n", encoding="utf-8")
+            crawler.return_value = iter([(url, b"<html>Crawled</html>", None)])
+            self.assertEqual(run([
+                "--import-folder", str(root), "--allow-domain", "example.org",
+                "--dry-run"]), 0)
+            fetcher.return_value.get.assert_not_called()
+            crawler.assert_called_once()
+            self.assertEqual(extract.call_count, 1)
+
+    def test_crawl_manifest_must_be_allowlisted(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "crawl.txt").write_text(
+                "https://outside.test/docs\\n", encoding="utf-8")
+            self.assertEqual(run([
+                "--import-folder", str(root), "--allow-domain", "example.org",
+                "--dry-run"]), 2)
 
     def test_rejects_symlinks(self):
         with TemporaryDirectory() as temp:
