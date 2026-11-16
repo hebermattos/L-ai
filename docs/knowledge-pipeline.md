@@ -1,10 +1,10 @@
 # Knowledge pipeline and evaluation
 
-This operational guide supplements the [README](../README.md). A dedicated GPU is optional. Adjust model size, context, concurrency, batch sizes, and OCR workload to match available system resources; there is no universal RAM minimum for all models. See [model configuration](model-configuration.md).
+Use this guide to evaluate and maintain a knowledge base after following the [import guide](advanced-import.md). For model and resource settings, see [model configuration](model-configuration.md).
 
 ## Workflow
 
-1. **Collect:** use authorized URLs, crawling, sitemaps, or PDF/EPUB documents. Run `--dry-run` before indexing. See [web ingestion](web-ingestion.md) and [document import](advanced-import.md).
+1. **Collect:** use authorized URLs, crawling, sitemaps, or PDF/EPUB documents. Run `--dry-run` before indexing. See [import options and limits](advanced-import.md).
 2. **Extract and normalize:** Trafilatura for HTML, PyMuPDF for PDF, EbookLib for EPUB, and optional Tesseract OCR.
 3. **Index:** configure `OPEN_WEBUI_API_KEY` and `OPEN_WEBUI_KNOWLEDGE_ID`; remove `--dry-run` to upload to Open WebUI Knowledge.
 4. **Retrieve:** attach the knowledge base to the `lai` model/chat and ask specific questions. **Successful indexing does not prove that responses used retrieved documents.**
