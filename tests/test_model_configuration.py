@@ -24,6 +24,7 @@ class ConfigurableModelSetupTests(unittest.TestCase):
         docker = self.bin_dir / "docker"
         docker.write_text(
             "#!/usr/bin/env bash\n"
+            "printf '%s\\n' \"COMPOSE_FILE=${COMPOSE_FILE:-}\" >> \"$FAKE_DOCKER_LOG\"\n"
             "printf '%s\\n' \"$*\" >> \"$FAKE_DOCKER_LOG\"\n"
             "if [[ \"$*\" == *' sh -c '* ]]; then\n"
             "  cat > \"$FAKE_MODELFILE\"\n"
@@ -37,7 +38,7 @@ class ConfigurableModelSetupTests(unittest.TestCase):
     def execute(self, overrides=None):
         env = os.environ.copy()
         for key in ("L_AI_MODEL", "L_AI_CONTEXT_LENGTH", "OLLAMA_NUM_PARALLEL",
-                    "OLLAMA_MAX_LOADED_MODELS"):
+                    "OLLAMA_MAX_LOADED_MODELS", "L_AI_GPU", "COMPOSE_FILE"):
             env.pop(key, None)
         env.update({
             "PATH": f"{self.bin_dir}:{env['PATH']}",
@@ -77,12 +78,30 @@ class ConfigurableModelSetupTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("FROM gemma3:4b", self.generated.read_text())
 
+    def test_nvidia_backend_uses_gpu_overlay(self):
+        result = self.execute({"L_AI_GPU": "nvidia"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("COMPOSE_FILE=compose.yaml:compose.gpu.nvidia.yaml", self.log.read_text())
+
+    def test_amd_backend_uses_rocm_overlay(self):
+        result = self.execute({"L_AI_GPU": "amd"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("COMPOSE_FILE=compose.yaml:compose.gpu.amd.yaml", self.log.read_text())
+
+    def test_env_file_backend_selection(self):
+        with (self.root / ".env").open("a", encoding="utf-8") as stream:
+            stream.write("L_AI_GPU=nvidia\\n")
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("COMPOSE_FILE=compose.yaml:compose.gpu.nvidia.yaml", self.log.read_text())
+
     def test_rejects_invalid_settings_before_docker_start(self):
         for overrides in (
             {"L_AI_MODEL": "model;unexpected"},
             {"L_AI_CONTEXT_LENGTH": "0"},
             {"OLLAMA_NUM_PARALLEL": "-1"},
             {"OLLAMA_MAX_LOADED_MODELS": "two"},
+            {"L_AI_GPU": "not-a-backend"},
         ):
             with self.subTest(overrides=overrides):
                 self.log.unlink(missing_ok=True)
