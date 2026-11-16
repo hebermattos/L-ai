@@ -1,7 +1,6 @@
 """Remote PDF handling without writing untrusted content to disk."""
-from dataclasses import dataclass
 from urllib.parse import urlsplit
-from .documents import DocumentError, MAX_PDF_BYTES, MAX_PAGES, MAX_TEXT_CHARS, ExtractedDocument
+from .documents import DocumentError, MAX_PDF_BYTES, MAX_PAGES, ExtractedDocument, extract_pdf_body
 from .web import normalized_url, SourceRejected
 
 def read_remote_pdf(fetcher, url):
@@ -15,15 +14,7 @@ def read_remote_pdf(fetcher, url):
             if pdf.needs_pass or pdf.page_count > MAX_PAGES:
                 raise DocumentError("Encrypted or oversized PDF")
             metadata = pdf.metadata or {}
-            sections, total = [], 0
-            for n, page in enumerate(pdf, 1):
-                text = page.get_text("text").strip()
-                total += len(text)
-                if total > MAX_TEXT_CHARS:
-                    raise DocumentError("Extracted text too large")
-                if text:
-                    sections.append(f"## Page {n}\n\n{text}")
-            body = "\n\n".join(sections)
+            body = extract_pdf_body(pdf, text_limit_error="Extracted text too large")
             if len(body) < 100:
                 raise DocumentError("PDF without selectable text; use OCR on an authorized local copy")
             return ExtractedDocument(

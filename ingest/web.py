@@ -4,6 +4,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 import time
+from collections.abc import Callable
 from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
@@ -58,12 +59,16 @@ def public_addresses(hostname: str) -> list[str]:
 
 
 class SafeFetcher:
-    def __init__(self, domains: set[str], max_bytes: int = MAX_HTML_BYTES, pause: float = 2.0):
+    def __init__(self, domains: set[str], max_bytes: int = MAX_HTML_BYTES, pause: float = 2.0,
+                 *, clock: Callable[[], float] | None = None,
+                 sleep: Callable[[float], None] | None = None):
         self.domains = {d.strip().lower().rstrip(".") for d in domains if d.strip()}
         if not self.domains:
             raise ValueError("At least one explicit allowed domain is required")
         self.max_bytes = max_bytes
         self.pause = pause
+        self._clock = clock
+        self._sleep = sleep
         self._robots: dict[str, RobotFileParser | None] = {}
         self._last_call = 0.0
 
@@ -73,10 +78,10 @@ class SafeFetcher:
         ips = public_addresses(parsed.hostname)
         # Connect to a vetted IP, use the original hostname for SNI and certificate validation.
         # No redirect following; DNS cannot change between validation and TCP connect.
-        wait = self.pause - (time.monotonic() - self._last_call)
+        wait = self.pause - ((self._clock or time.monotonic)() - self._last_call)
         if wait > 0:
-            time.sleep(wait)
-        self._last_call = time.monotonic()
+            (self._sleep or time.sleep)(wait)
+        self._last_call = (self._clock or time.monotonic)()
         pool = urllib3.HTTPSConnectionPool(
             ips[0], port=443, server_hostname=parsed.hostname,
             assert_hostname=parsed.hostname, cert_reqs="CERT_REQUIRED",

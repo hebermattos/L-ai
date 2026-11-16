@@ -25,6 +25,7 @@ def discover_links(html: bytes, parent: str, domains: set[str], path_prefix: str
     parser = LinkParser()
     parser.feed(html.decode("utf-8", "replace"))
     found = []
+    seen = set()
     for href in parser.links:
         try:
             candidate = normalized_url(urljoin(parent, href), domains)
@@ -35,7 +36,8 @@ def discover_links(html: bytes, parent: str, domains: set[str], path_prefix: str
             if p.path.lower().endswith((".pdf", ".epub", ".zip", ".png", ".jpg", ".jpeg",
                                          ".gif", ".svg", ".mp4", ".xml", ".rss", ".json")):
                 continue
-            if candidate not in found:
+            if candidate not in seen:
+                seen.add(candidate)
                 found.append(candidate)
         except (SourceRejected, ValueError):
             continue

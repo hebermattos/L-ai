@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .documents import DocumentError
+from .manifests import read_url_lines
 
 MAX_MANIFESTS = 20
 MAX_MANIFEST_BYTES = 65536
@@ -49,11 +50,10 @@ def discover_import_folder(directory: Path) -> tuple[list[Path], list[str], list
             if bytes_read > MAX_MANIFEST_BYTES:
                 raise DocumentError("URL lists exceed the combined 64 KiB limit")
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()
+                lines = read_url_lines(path)
             except UnicodeError as exc:
                 raise DocumentError(f"URL list is not UTF-8: {path}") from exc
             target = urls if path.name.lower() == "urls.txt" else crawl_urls
-            target.extend(line.strip() for line in lines
-                          if line.strip() and not line.lstrip().startswith("#"))
+            target.extend(lines)
 
     return documents, urls, crawl_urls

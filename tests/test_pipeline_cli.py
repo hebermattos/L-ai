@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from ingest.cli import parse_args, run
 
 class PipelineCliTests(unittest.TestCase):

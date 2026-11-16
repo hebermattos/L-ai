@@ -77,3 +77,31 @@ See [knowledge pipeline](knowledge-pipeline.md) and [installation](../README.md)
 ## Directory migration
 
 The default state directory is `knowledge/`. For previous installations using `biblioteca/`, back up the local data and run `bash scripts/migrate-knowledge.sh` before ingestion. The script renames the legacy directory only when `knowledge/` does not exist; it refuses to merge directories or overwrite data. When both directories exist, reconcile them manually; the ingestion CLI accepts `--state` to select a database explicitly.
+
+
+## Development checks
+
+Install development dependencies in a virtual environment and run the same Python checks as CI:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m ruff check ingest tests
+python -m mypy
+python -m unittest discover -s tests -v
+python -m compileall -q ingest tests
+```
+
+Ruff checks unused imports and other Python errors. Strict type checking starts with
+`contracts.py`, `state.py`, `service.py`, and `manifests.py`; extend its scope as other
+modules gain complete annotations. Development tools are separate from runtime dependencies.
+
+The CLI separates input preparation from source execution. Local and remote PDFs
+share page-text extraction, while keeping their existing OCR policies, metadata
+fallbacks, and error messages. URL manifest parsing is shared; each entry point
+retains its own byte and count limits. SQLite connections and Open WebUI sessions
+support context managers and are closed by the CLI, including on processing errors.
+
+Behavior tests cover CLI output and exit codes, document formatting, source ordering,
+body hashes, filenames, and the existing SQLite schema. Network timing tests inject
+clocks and sleep functions; production defaults retain the existing pauses and timeouts.
+The live Open WebUI test remains opt-in and requires a disposable knowledge base.

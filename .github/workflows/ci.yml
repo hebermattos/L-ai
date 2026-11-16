@@ -18,9 +18,16 @@ jobs:
         run: |
           bash -n scripts/setup.sh
           bash -n scripts/check.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install ingestion dependencies
         run: |
-          python3 -m pip install --break-system-packages -r requirements-ingest.txt
+          python3 -m pip install -r requirements-dev.txt
+      - name: Check Python lint
+        run: python3 -m ruff check ingest tests
+      - name: Check typed ingestion contracts
+        run: python3 -m mypy
       - name: Check project tests
         run: python3 -m unittest discover -s tests -v
       - name: Check Python syntax
