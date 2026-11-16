@@ -1,12 +1,12 @@
 # L-ai — Local AI with RAG
 
-A **general-purpose local AI assistant** with chat and retrieval-augmented generation (**RAG**). Runs **Ollama + Qwen3 4B Instruct + Open WebUI** to search documents and answer questions across domains. Designed for **Linux, CPU-only systems with 16 GB of RAM**; no dedicated GPU is required.
+A **general-purpose local AI assistant** with chat and retrieval-augmented generation (**RAG**). Runs **Ollama + a configurable language model + Open WebUI** to search documents and answer questions across domains. Memory and accelerator requirements depend on the chosen model, context length, and runtime.
 
 RAG does **not** train the model or modify its weights. It indexes authorized documents and retrieves relevant passages during conversations. The assistant is not restricted to a particular subject.
 
 ## Quick start
 
-Requirements: Ubuntu/Debian, Docker Engine with Compose v2, Git, OpenSSL, Docker access, and available storage for models and documents. Initial setup downloads container images and the model.
+Requirements for the provided Bash setup: Bash, Git, OpenSSL, Docker Engine (or a compatible Docker runtime) with Compose v2, and sufficient storage and memory for the chosen model. Supported platforms depend on the installed Docker/Ollama runtime. Initial setup downloads container images and the model.
 
 ```bash
 git clone https://github.com/hebermattos/L-ai.git
@@ -15,9 +15,24 @@ bash scripts/setup.sh
 docker compose ps
 ```
 
-Open **http://localhost:3000**, create a local administrator account, and select the **lai** model. The script creates a secret in `.env`, starts Ollama and Open WebUI, downloads Qwen, and configures the general-purpose `lai` profile. Do not run `sudo bash scripts/setup.sh`; configure Docker permissions using the [official instructions](https://docs.docker.com/engine/install/linux-postinstall/).
+Open **http://localhost:3000**, create a local administrator account, and select the **lai** model. The script creates a secret in `.env`, starts Ollama and Open WebUI, downloads the selected Ollama model (Qwen by default), and configures the general-purpose `lai` profile. Do not run `sudo bash scripts/setup.sh`; configure Docker access using the [official documentation](https://docs.docker.com/engine/).
 
 **Initial smoke test:** ask the model to explain a programming concept or summarize a general idea. This checks inference only, not RAG retrieval.
+
+## Configurable model and hardware
+
+The model is selectable: `qwen3:4b-instruct` is only the default. Set values in your local `.env` before running `bash scripts/setup.sh`:
+
+```dotenv
+L_AI_MODEL=qwen3:4b-instruct
+L_AI_CONTEXT_LENGTH=8192
+OLLAMA_NUM_PARALLEL=1
+OLLAMA_MAX_LOADED_MODELS=1
+```
+
+The installer validates these values, pulls the requested model, and creates the local `lai` alias with a rendered Modelfile. The tracked `config/Modelfile` remains a template. Docker Compose reads the runtime concurrency settings from `.env`. Rerunning setup updates `lai` without deleting knowledge bases or Docker volumes. Model selection, context length, and concurrency are tunable defaults, not hardware minimums. Ollama can use a compatible GPU when the host runtime exposes it; GPU configuration is not automatically enabled by this project.
+
+For configuration details, see [model and resource settings](docs/model-configuration.md).
 
 ## Enable RAG
 
@@ -108,7 +123,7 @@ docker compose start
 
 The chat binds to `127.0.0.1:3000`, while Ollama stays on the internal Docker network. The `ollama_data` and `open_webui_data` volumes persist models and data. Back up these volumes before upgrading; **do not run `docker compose down -v`** if you want to keep them. Do not expose the API or chat to the internet without additional security controls. Web collection needs network access; local inference requires no paid API.
 
-Upgrade with `docker compose pull && docker compose up -d`, preferably using pinned image versions and verified backups. CPU performance varies; OCR and indexing large libraries can be slow.
+Upgrade with `docker compose pull && docker compose up -d`, preferably using pinned image versions and verified backups. Performance and memory consumption depend on the selected model, processor, accelerator, and workload. OCR and large-scale indexing can be resource-intensive.
 
 ## Repository layout
 
@@ -127,7 +142,7 @@ Upgrade with `docker compose pull && docker compose up -d`, preferably using pin
 └── .github/workflows/ci.yml
 ```
 
-References: [Ollama](https://ollama.com/library/qwen3:4b-instruct), [Open WebUI](https://docs.openwebui.com/), and [Docker](https://docs.docker.com/engine/install/ubuntu/).
+References: [Ollama](https://ollama.com/library), [Open WebUI](https://docs.openwebui.com/), and [Docker](https://docs.docker.com/).
 
 ## Language policy
 
