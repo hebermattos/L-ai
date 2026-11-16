@@ -30,9 +30,9 @@ OLLAMA_NUM_PARALLEL=1
 OLLAMA_MAX_LOADED_MODELS=1
 ```
 
-The installer validates these values, pulls the requested model, and creates the local `lai` alias with a rendered Modelfile. The tracked `config/Modelfile` remains a template. Docker Compose reads the runtime concurrency settings from `.env`. Rerunning setup updates `lai` without deleting knowledge bases or Docker volumes. Model selection, context length, and concurrency are tunable defaults, not hardware minimums. Ollama can use a compatible GPU when the host runtime exposes it; GPU configuration is not automatically enabled by this project.
+The installer validates these values, pulls the requested model, and creates the local `lai` alias with a rendered Modelfile. The tracked `config/Modelfile` remains a template. Docker Compose reads the runtime concurrency settings from `.env`. Rerunning setup updates `lai` without deleting knowledge bases or Docker volumes. Model selection, context length, and concurrency are tunable defaults, not hardware minimums. Ollama can use a compatible GPU when the host runtime exposes it; GPU acceleration is opt-in through `L_AI_GPU=nvidia` or `L_AI_GPU=amd` on compatible hosts; it is not enabled by default.
 
-For configuration details, see [model and resource settings](docs/model-configuration.md).
+For configuration details, see [model and resource settings](docs/model-configuration.md) and [platform and GPU setup](docs/platforms-and-gpu.md).
 
 ## Enable RAG
 
@@ -111,6 +111,7 @@ For upload, indexing, and association tests against a **disposable knowledge bas
 - [Crawler and local documents](docs/advanced-import.md) — traversal, PDF, EPUB, and OCR.
 - [Reliability and testing](docs/reliability.md) — SQLite, updates, and recovery.
 - [Knowledge pipeline and evaluation](docs/knowledge-pipeline.md) — scheduling, metadata, metrics, and hybrid search.
+- [Platform and GPU setup](docs/platforms-and-gpu.md) — Linux, Windows/WSL2, macOS, and optional NVIDIA/AMD overlays.
 
 ## Operations and limitations
 
