@@ -2,6 +2,16 @@
 
 This guide documents **currently implemented functionality**: individual URLs, `urls.txt` lists, authorized recursive crawling, sitemap discovery, and explicitly supplied remote PDFs. Trafilatura extracts HTML, and content can be uploaded to an Open WebUI Knowledge base.
 
+## Folder-based URL lists
+
+To ingest local PDF/EPUB files and HTTPS URLs from multiple `.txt` lists in one operation, use:
+
+```bash
+python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
+```
+
+The command scans subfolders, reads UTF-8 URL lists (one URL per line), and enforces the same explicit host allowlist and network safeguards as `--urls-file`. Remove `--dry-run` after configuring Open WebUI credentials. See [document import](advanced-import.md) for limits and folder layout.
+
 ## Prerequisites
 
 Install dependencies and configure the API as described in the [README](../README.md#enable-rag). Create `urls.txt` with one HTTPS URL per line and optional `#` comments:
