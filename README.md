@@ -24,7 +24,7 @@ Ask a general question to check inference. To choose another model, context leng
 3. In a chat with `lai`, attach the base through the knowledge selector (or `#` in compatible versions), or configure it on a custom model.
 4. Ask something answered only in that document and verify the cited source. A plausible answer alone does not prove retrieval worked.
 
-For CLI imports, install Python dependencies on the host and configure an Open WebUI API key and knowledge-base ID:
+For CLI imports, install Python dependencies on the host and configure an Open WebUI API key and destination base (ID or name):
 
 ```bash
 python3 -m venv .venv
@@ -34,9 +34,18 @@ export OPEN_WEBUI_API_KEY='YOUR_API_KEY'
 export OPEN_WEBUI_KNOWLEDGE_ID='YOUR_KNOWLEDGE_BASE_ID'
 ```
 
+You may omit `OPEN_WEBUI_KNOWLEDGE_ID` when passing `--knowledge-id` or
+`--knowledge-name` explicitly.
+
 Never commit credentials. The CLI uses the local Open WebUI instance at `http://127.0.0.1:3000`.
 
 ## Import content
+
+You can create multiple knowledge bases and choose a destination per import with
+`--knowledge-id` or `--knowledge-name`. Use `python -m ingest.knowledge list` to
+list bases and `python -m ingest.knowledge create --name "Programming"` to create
+one. In the chat, attach the bases you want to consult. See
+[multiple knowledge bases](docs/multiple-knowledge-bases.md) for the complete workflow.
 
 Put PDF/EPUB files and optional UTF-8 URL lists in a folder, including subfolders:
 
@@ -63,6 +72,7 @@ See the [import guide](docs/advanced-import.md) for individual files and URLs, `
 | Guide | Contents |
 | --- | --- |
 | [Import content](docs/advanced-import.md) | Folder manifests, web sources, PDF/EPUB, OCR, and limits |
+| [Multiple knowledge bases](docs/multiple-knowledge-bases.md) | Create, list, select import destinations, and choose chat context |
 | [Model configuration](docs/model-configuration.md) | Variables, defaults, and resource planning |
 | [Platform and GPU setup](docs/platforms-and-gpu.md) | Linux, Windows/WSL2, macOS, NVIDIA, and AMD |
 | [Operations and reliability](docs/reliability.md) | Start/stop, upgrades, backup, migration, recovery, and tests |
@@ -93,3 +103,4 @@ The chat binds to `127.0.0.1:3000`; Ollama stays on the Docker network. Models a
 Maintain code, identifiers, comments, CLI messages, model instructions, and documentation in **English**. The assistant can answer in the user's requested language, including Brazilian Portuguese.
 
 References: [Ollama](https://ollama.com/library), [Open WebUI](https://docs.openwebui.com/), and [Docker](https://docs.docker.com/).
+
