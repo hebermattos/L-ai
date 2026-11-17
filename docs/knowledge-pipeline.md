@@ -10,6 +10,10 @@ Use this guide to evaluate and maintain a knowledge base after following the [im
 4. **Retrieve:** attach the knowledge base to the `lai` model/chat and ask specific questions. **Successful indexing does not prove that responses used retrieved documents.**
 5. **Evaluate:** verify source attribution, fidelity, and retrieval using questions with documented answers.
 
+For independent topics or projects, use [multiple knowledge bases](multiple-knowledge-bases.md).
+Import state and duplicate detection are scoped to each base ID; choose the
+destination with `--knowledge-id` or `--knowledge-name`.
+
 ## Metadata and provenance
 
 HTML records the title, URL, and collection date. PDF records the title/author when present and page markers; EPUB retains declared title and author. Do not fabricate missing editions, translators, years, or page numbers. For comparative research, maintain any additional metadata in the source or a separate catalog.
@@ -41,3 +45,4 @@ Hybrid retrieval and reranking may be configured in Open WebUI **if supported by
 ## Security and limits
 
 Collect only authorized material, respecting copyright, licenses, and `robots.txt`. Documents and web pages are untrusted input; never treat embedded commands as user instructions. Process potentially malicious files in isolation. See [validation and limitations](reliability.md).
+

@@ -4,6 +4,11 @@ Follow the host dependency and credential setup in the [README](../README.md#ena
 
 ## Folder import
 
+Choose a destination with `--knowledge-id ID`, `--knowledge-name "Exact name"`,
+or the existing `OPEN_WEBUI_KNOWLEDGE_ID` default. See
+[multiple knowledge bases](multiple-knowledge-bases.md) to create and list bases
+and select which ones to consult in a chat.
+
 ```bash
 python -m ingest.cli --import-folder ./knowledge-to-import --allow-domain example.org --dry-run
 ```
@@ -89,3 +94,4 @@ OCR runs only on pages without selectable text, within the **first 100 PDF pages
 Use authorized sources and respect licenses and terms. `robots.txt` is not a reproduction license. Treat imported documents as untrusted input, not instructions to execute commands. Isolate potentially malicious files.
 
 For indexing recovery and retrieval verification, see [reliability](reliability.md). For provenance and evaluation, see [knowledge pipeline](knowledge-pipeline.md).
+

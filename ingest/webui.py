@@ -13,7 +13,7 @@ class WebUIError(RuntimeError):
     pass
 
 class WebUI:
-    def __init__(self, base_url: str, api_key: str, knowledge_id: str, *,
+    def __init__(self, base_url: str, api_key: str, knowledge_id: str | None = None, *,
                  clock: Callable[[], float] | None = None,
                  sleep: Callable[[float], None] | None = None) -> None:
         base = base_url.rstrip('/')
@@ -22,12 +22,13 @@ class WebUI:
                 or p.port not in (None,3000) or p.path or p.query or p.fragment
                 or p.username or p.password):
             raise ValueError("Only http://localhost:3000 (or 127.0.0.1) is allowed")
-        if not api_key or not knowledge_id or not all(c.isalnum() or c in '-_' for c in knowledge_id):
+        if not api_key or (knowledge_id is not None and (
+                not knowledge_id or not all(c.isalnum() or c in '-_' for c in knowledge_id))):
             raise ValueError("Valid API key and Knowledge ID are required")
         self._clock = clock
         self._sleep = sleep
         self.base = base
-        self.knowledge_id = knowledge_id
+        self.knowledge_id = knowledge_id or ""
         self.session = requests.Session()
         self.session.trust_env = False
         self.session.headers.update({'Authorization': f'Bearer {api_key}', 'Accept':'application/json'})
@@ -44,6 +45,56 @@ class WebUI:
             return response.json()
         except ValueError as exc:
             raise WebUIError("Open WebUI returned invalid JSON") from exc
+
+    @staticmethod
+    def _knowledge_record(data: Any) -> dict[str, str]:
+        if (not isinstance(data, dict)
+                or not isinstance(data.get('id'), str) or not data['id']
+                or not all(c.isascii() and (c.isalnum() or c in '-_') for c in data['id'])
+                or not isinstance(data.get('name'), str)):
+            raise WebUIError("Invalid Knowledge response")
+        return {'id': data['id'], 'name': data['name']}
+
+    def list_knowledge(self, max_pages: int = 100) -> list[dict[str, str]]:
+        """Read all accessible bases; never silently return a partial catalog."""
+        records: dict[str, dict[str, str]] = {}
+        for page in range(1, max_pages + 1):
+            data = self._request('GET', '/api/v1/knowledge/', params={'page': page})
+            items = data if isinstance(data, list) else (
+                data.get('items') if isinstance(data, dict) else None)
+            if not isinstance(items, list):
+                raise WebUIError("Invalid Knowledge list response")
+            before = len(records)
+            for item in items:
+                record = self._knowledge_record(item)
+                records[record['id']] = record
+            if isinstance(data, list):
+                # Legacy versions return the full catalog as an unpaginated array.
+                return list(records.values())
+            total = data.get('total')
+            if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+                raise WebUIError("Invalid Knowledge total")
+            if len(records) >= total:
+                return list(records.values())
+            if len(records) == before:
+                raise WebUIError("Incomplete Knowledge pagination")
+        raise WebUIError("Exceeded Knowledge pagination limit")
+
+    def resolve_knowledge(self, name: str) -> str:
+        matches = [item for item in self.list_knowledge() if item['name'] == name]
+        if not matches:
+            raise WebUIError("Knowledge name not found; use the list command")
+        if len(matches) != 1:
+            raise WebUIError("Ambiguous Knowledge name; use --knowledge-id")
+        return matches[0]['id']
+
+    def create_knowledge(self, name: str, description: str = "") -> dict[str, str]:
+        name = name.strip()
+        if not name:
+            raise ValueError("Knowledge name must not be blank")
+        data = self._request('POST', '/api/v1/knowledge/create',
+                             json={'name': name, 'description': description})
+        return self._knowledge_record(data)
 
     def upload(self, name: str, markdown: str) -> str:
         data = self._request('POST','/api/v1/files/', files={
@@ -128,3 +179,4 @@ class WebUI:
     def __exit__(self, exc_type: type[BaseException] | None,
                  exc_value: BaseException | None, traceback: TracebackType | None) -> None:
         self.close()
+

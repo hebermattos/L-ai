@@ -41,12 +41,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--import-folder", type=Path, help="Import PDF/EPUB files and separate urls.txt/crawl.txt URL lists")
     p.add_argument("--max-documents", type=int, default=50)
     p.add_argument("--ocr", action="store_true", help="Use local Tesseract only for scanned PDF pages")
-    p.add_argument("--knowledge-id", default=os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", ""))
+    knowledge = p.add_mutually_exclusive_group()
+    knowledge.add_argument("--knowledge-id", help="Target base ID; overrides OPEN_WEBUI_KNOWLEDGE_ID")
+    knowledge.add_argument("--knowledge-name", help="Exact, unique base name; overrides the environment ID")
     p.add_argument("--webui-url", default="http://127.0.0.1:3000")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--state", type=Path, default=Path("knowledge/.web-ingest.sqlite3"))
     p.add_argument("--max-urls", type=int, default=25)
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.knowledge_id is None and args.knowledge_name is None:
+        args.knowledge_id = os.getenv("OPEN_WEBUI_KNOWLEDGE_ID", "")
+    return args
 
 
 def list_urls(args: argparse.Namespace, extra_urls: Iterable[str] = ()) -> list[str]:
@@ -187,16 +192,23 @@ def run(argv: Sequence[str] | None = None) -> int:
         print(f"Invalid input: {exc}", file=sys.stderr)
         return 2
 
-    if not args.dry_run and (not os.getenv("OPEN_WEBUI_API_KEY") or not args.knowledge_id):
-        print("Set OPEN_WEBUI_API_KEY and OPEN_WEBUI_KNOWLEDGE_ID", file=sys.stderr)
+    if not args.dry_run and (not os.getenv("OPEN_WEBUI_API_KEY")
+                            or not (args.knowledge_id or args.knowledge_name)):
+        print("Set OPEN_WEBUI_API_KEY and select --knowledge-id, --knowledge-name, or OPEN_WEBUI_KNOWLEDGE_ID", file=sys.stderr)
         return 2
 
     fetcher = SafeFetcher(set(args.allow_domain)) if plan.urls or args.sitemap or args.remote_pdf else None
     with ExitStack() as resources:
         webui = state = None
         if not args.dry_run:
-            webui = WebUI(args.webui_url, os.environ["OPEN_WEBUI_API_KEY"], args.knowledge_id)
-            resources.callback(webui.close)
+            try:
+                webui = WebUI(args.webui_url, os.environ["OPEN_WEBUI_API_KEY"], args.knowledge_id)
+                resources.callback(webui.close)
+                if args.knowledge_name is not None:
+                    webui.knowledge_id = webui.resolve_knowledge(args.knowledge_name)
+            except (ValueError, WebUIError) as exc:
+                print(f"Knowledge selection failed: {exc}", file=sys.stderr)
+                return 2
             state = IngestState(args.state)
             resources.callback(state.close)
         return execute_sources(args, plan, fetcher, webui, state)
@@ -204,3 +216,4 @@ def run(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(run())
+
