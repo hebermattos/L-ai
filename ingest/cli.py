@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from itertools import chain
 import os
 from pathlib import Path
-from typing import cast
 import sys
 
 import trafilatura
@@ -17,7 +17,7 @@ from .contracts import CrawlItem, SourceFetcher
 from .crawler import crawl
 from .sitemap import sitemap_urls
 from .remote import read_remote_pdf
-from .documents import DocumentError, file_paths, format_document, read_document
+from .documents import file_paths, format_document, read_document
 from .folder import discover_import_folder
 from .manifests import read_url_lines
 from .service import ingest_page
@@ -54,17 +54,26 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def list_urls(args: argparse.Namespace, extra_urls: Iterable[str] = ()) -> list[str]:
-    urls = list(args.url) + list(extra_urls)
-    if args.urls_file:
-        if args.urls_file.stat().st_size > 65536:
-            raise ValueError("URL list exceeds 64 KiB")
-        urls.extend(read_url_lines(args.urls_file))
-    if not 1 <= args.max_urls <= 100 or len(urls) > args.max_urls:
+def _read_cli_manifest(path: Path | None) -> list[str]:
+    if path is None:
+        return []
+    if path.stat().st_size > 65536:
+        raise ValueError("URL list exceeds 64 KiB")
+    return read_url_lines(path)
+
+
+def _normalize_urls(urls: list[str], max_urls: int, domains: set[str]) -> dict[str, str]:
+    if not 1 <= max_urls <= 100 or len(urls) > max_urls:
         raise ValueError("URL count outside allowed range")
-    if urls and not args.allow_domain:
+    if urls and not domains:
         raise ValueError("--allow-domain is required for web URLs")
-    return list(dict.fromkeys(normalized_url(u, set(args.allow_domain)) for u in urls))
+    return {url: normalized_url(url, domains) for url in dict.fromkeys(urls)}
+
+
+def list_urls(args: argparse.Namespace, extra_urls: Iterable[str] = ()) -> list[str]:
+    urls = [*args.url, *extra_urls, *_read_cli_manifest(args.urls_file)]
+    normalized = _normalize_urls(urls, args.max_urls, set(args.allow_domain))
+    return list(dict.fromkeys(normalized.values()))
 
 
 def extract_markdown(url: str, html: bytes) -> tuple[str, str]:
@@ -93,23 +102,26 @@ def prepare_inputs(args: argparse.Namespace) -> IngestPlan:
     folder_documents, folder_urls, folder_crawl_urls = (
         discover_import_folder(args.import_folder)
         if args.import_folder else ([], [], []))
-    # Validate all seeds together to enforce one shared URL limit.
-    urls = list_urls(args, folder_urls + folder_crawl_urls)
-    crawl_targets = {
-        normalized_url(url, set(args.allow_domain)) for url in folder_crawl_urls
-    }
-    manual_crawl_seeds = set(list_urls(args)) if args.crawl else set()
-    if args.crawl and not manual_crawl_seeds:
-        raise ValueError("--crawl requires a seed from --url or --urls-file")
-    crawl_targets.update(manual_crawl_seeds)
+    domains = set(args.allow_domain)
+    manifest_urls = _read_cli_manifest(args.urls_file)
+    normalized = _normalize_urls(
+        [*args.url, *folder_urls, *folder_crawl_urls, *manifest_urls],
+        args.max_urls,
+        domains,
+    )
+    urls = list(dict.fromkeys(normalized.values()))
+    crawl_targets = {normalized[url] for url in folder_crawl_urls}
+    if args.crawl:
+        manual_seeds = args.url + manifest_urls
+        if not manual_seeds:
+            raise ValueError("--crawl requires a seed from --url or --urls-file")
+        crawl_targets.update(normalized[url] for url in manual_seeds)
     documents = file_paths(args.file + folder_documents, args.directory, args.max_documents)
     if args.sitemap or args.remote_pdf:
         if not args.allow_domain:
             raise ValueError("--allow-domain required for remote resources")
         for remote_url in args.sitemap + args.remote_pdf:
-            normalized_url(remote_url, set(args.allow_domain))
-    if args.sitemap and not 1 <= args.max_pages <= 100:
-        raise ValueError("Invalid sitemap max-pages")
+            normalized_url(remote_url, domains)
     if not urls and not documents and not args.sitemap and not args.remote_pdf:
         raise ValueError("Provide --url, --urls-file, --file, --directory, or --import-folder with supported content")
     if len(crawl_targets) > args.max_pages:
@@ -119,32 +131,24 @@ def prepare_inputs(args: argparse.Namespace) -> IngestPlan:
     return IngestPlan(urls, crawl_targets, documents)
 
 
-def execute_sources(args: argparse.Namespace, plan: IngestPlan,
-                    fetcher: SourceFetcher | None, webui: WebUI | None,
-                    state: IngestState | None) -> int:
-    """Process prepared sources in the existing order and report failures."""
-    urls, crawl_targets, documents = plan.urls, plan.crawl_targets, plan.documents
-    failed = 0
-    source_fetcher = cast(SourceFetcher, fetcher)
+SourceProcessor = Callable[[str, str, str, str], None]
 
-    def process(source: str, title: str, body: str, formatted: str) -> None:
-        if args.dry_run:
-            print(f"DRY RUN {source}: {title} ({len(body)} chars)")
-        else:
-            result = ingest_page(cast(IngestState, state), cast(WebUI, webui),
-                                 source, title, body, formatted)
-            print(f"{result} {source}")
+
+def execute_web_sources(args: argparse.Namespace, plan: IngestPlan,
+                        fetcher: SourceFetcher, process: SourceProcessor) -> int:
+    urls, crawl_targets = plan.urls, plan.crawl_targets
+    failed = 0
 
     def explicit_pages(direct_urls: list[str]) -> Iterator[CrawlItem]:
         for url in direct_urls:
             try:
-                yield url, source_fetcher.get(url), None
+                yield url, fetcher.get(url), None
             except SourceRejected as exc:
                 yield url, None, exc
 
     if args.sitemap:
         try:
-            urls = list(dict.fromkeys(urls + sitemap_urls(source_fetcher, args.sitemap, max_urls=args.max_pages)))
+            urls = list(dict.fromkeys(urls + sitemap_urls(fetcher, args.sitemap, max_urls=args.max_pages)))
         except (SourceRejected, ValueError, OSError) as exc:
             failed += 1
             print(f"FAILED sitemap: {exc}", file=sys.stderr)
@@ -154,31 +158,37 @@ def execute_sources(args: argparse.Namespace, plan: IngestPlan,
     crawl_seeds = [url for url in urls if url in crawl_targets]
     sources: Iterator[CrawlItem] = explicit_pages(direct_urls)
     if crawl_seeds:
-        from itertools import chain
-        sources = chain(sources, crawl(source_fetcher, crawl_seeds, args.max_pages, args.max_depth))
-    if urls:
-        for item in sources:
-            try:
-                url, html, error = item
-                if error:
-                    raise error
-                title, body = extract_markdown(url, cast(bytes, html))
-                process(url, title, body, format_doc(url, title, body))
-            except (SourceRejected, ValueError, WebUIError, OSError) as exc:
-                failed += 1
-                print(f"FAILED web page: {exc}", file=sys.stderr)
+        sources = chain(sources, crawl(fetcher, crawl_seeds, args.max_pages, args.max_depth))
+    for url, html, error in sources:
+        try:
+            if error is not None:
+                raise error
+            if html is None:
+                raise ValueError("No HTML returned")
+            title, body = extract_markdown(url, html)
+            process(url, title, body, format_doc(url, title, body))
+        except (ValueError, WebUIError, OSError) as exc:
+            failed += 1
+            print(f"FAILED web page: {exc}", file=sys.stderr)
     for remote_url in args.remote_pdf:
         try:
-            doc = read_remote_pdf(source_fetcher, remote_url)
+            doc = read_remote_pdf(fetcher, remote_url)
             process(doc.source, doc.title, doc.body, format_document(doc))
-        except (SourceRejected, DocumentError, ValueError, WebUIError, OSError) as exc:
+        except (ValueError, WebUIError, OSError) as exc:
             failed += 1
             print(f"FAILED remote PDF: {exc}", file=sys.stderr)
-    for path in documents:
+    return failed
+
+
+def execute_sources(args: argparse.Namespace, plan: IngestPlan,
+                    fetcher: SourceFetcher | None, process: SourceProcessor) -> int:
+    """Process prepared sources in order and report partial failures."""
+    failed = execute_web_sources(args, plan, fetcher, process) if fetcher is not None else 0
+    for path in plan.documents:
         try:
             doc = read_document(path, ocr=args.ocr)
             process(doc.source, doc.title, doc.body, format_document(doc))
-        except (DocumentError, ValueError, WebUIError, OSError) as exc:
+        except (ValueError, WebUIError, OSError) as exc:
             failed += 1
             print(f"FAILED {path.name}: {exc}", file=sys.stderr)
     return 1 if failed else 0
@@ -198,20 +208,29 @@ def run(argv: Sequence[str] | None = None) -> int:
         return 2
 
     fetcher = SafeFetcher(set(args.allow_domain)) if plan.urls or args.sitemap or args.remote_pdf else None
+    if args.dry_run:
+        def preview(source: str, title: str, body: str, _formatted: str) -> None:
+            print(f"DRY RUN {source}: {title} ({len(body)} chars)")
+
+        return execute_sources(args, plan, fetcher, preview)
+
     with ExitStack() as resources:
-        webui = state = None
-        if not args.dry_run:
-            try:
-                webui = WebUI(args.webui_url, os.environ["OPEN_WEBUI_API_KEY"], args.knowledge_id)
-                resources.callback(webui.close)
-                if args.knowledge_name is not None:
-                    webui.knowledge_id = webui.resolve_knowledge(args.knowledge_name)
-            except (ValueError, WebUIError) as exc:
-                print(f"Knowledge selection failed: {exc}", file=sys.stderr)
-                return 2
-            state = IngestState(args.state)
-            resources.callback(state.close)
-        return execute_sources(args, plan, fetcher, webui, state)
+        try:
+            webui = WebUI(args.webui_url, os.environ["OPEN_WEBUI_API_KEY"], args.knowledge_id)
+            resources.callback(webui.close)
+            if args.knowledge_name is not None:
+                webui.knowledge_id = webui.resolve_knowledge(args.knowledge_name)
+        except (ValueError, WebUIError) as exc:
+            print(f"Knowledge selection failed: {exc}", file=sys.stderr)
+            return 2
+        state = IngestState(args.state)
+        resources.callback(state.close)
+
+        def publish(source: str, title: str, body: str, formatted: str) -> None:
+            result = ingest_page(state, webui, source, title, body, formatted)
+            print(f"{result} {source}")
+
+        return execute_sources(args, plan, fetcher, publish)
 
 
 if __name__ == "__main__":

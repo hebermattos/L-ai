@@ -13,7 +13,7 @@ def ingest_page(state: StateStore, webui: KnowledgeClient, url: str, title: str,
         if webui.knowledge_has_file(old['file_id']):
             return 'UNCHANGED'
         state.save(url, kb, digest, old['file_id'], 'uploaded')
-        old = state.get(url, kb)
+        old = {**old, 'status': 'uploaded'}
 
     if old and old['status'] == 'uploaded':
         file_id = old['file_id']
@@ -24,7 +24,6 @@ def ingest_page(state: StateStore, webui: KnowledgeClient, url: str, title: str,
             return 'RECOVERED'
         # Content changed while the prior upload/link operation was pending.
         state.save(url, kb, old['hash'], file_id, 'ready')
-        old = state.get(url, kb)
 
     if old:
         # Store pending update before calling remote endpoint; repeat on retry.
