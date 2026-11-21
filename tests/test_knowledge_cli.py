@@ -123,13 +123,15 @@ class KnowledgeSelectionTests(unittest.TestCase):
     @patch("ingest.cli.IngestState")
     @patch("ingest.cli.WebUI")
     @patch("ingest.cli.prepare_inputs", return_value=cli.IngestPlan([], set(), []))
-    def test_name_resolved_before_state_or_upload(self, prepare, factory, state, execute):
+    @patch("ingest.cli.ingest_page", return_value="IMPORTED")
+    def test_name_resolved_before_state_or_upload(self, ingest, prepare, factory, state, execute):
         api = factory.return_value
         api.resolve_knowledge.return_value = "selected-id"
         self.assertEqual(cli.run(["--knowledge-name", "Security"]), 0)
         self.assertEqual(api.knowledge_id, "selected-id")
         api.resolve_knowledge.assert_called_once_with("Security")
-        self.assertIs(execute.call_args.args[3], api)
+        execute.call_args.args[3]("source", "Title", "body", "document")
+        ingest.assert_called_once_with(state.return_value, api, "source", "Title", "body", "document")
         api.close.assert_called_once()
 
     @patch.dict(os.environ, {"OPEN_WEBUI_API_KEY": "secret"}, clear=True)

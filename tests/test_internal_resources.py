@@ -1,6 +1,6 @@
 """Resource cleanup, bounded PDF extraction and deterministic network timing."""
 
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
 from pathlib import Path
@@ -145,6 +145,25 @@ class TimingTests(unittest.TestCase):
 
 
 class PDFExtractionTests(unittest.TestCase):
+    def test_corrupt_local_pdf_does_not_stop_batch(self):
+        import pymupdf
+
+        with TemporaryDirectory() as temp:
+            corrupt = Path(temp) / "corrupt.pdf"
+            valid = Path(temp) / "valid.pdf"
+            corrupt.write_bytes(b"invalid PDF")
+            with pymupdf.open() as doc:
+                doc.new_page().insert_textbox(
+                    pymupdf.Rect(30, 30, 500, 500), "Readable text. " * 20
+                )
+                doc.save(valid)
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                result = run(["--dry-run", "--file", str(corrupt), "--file", str(valid)])
+            self.assertEqual(result, 1)
+            self.assertIn("FAILED corrupt.pdf: Unable to read PDF", err.getvalue())
+            self.assertIn(f"DRY RUN {valid.resolve().as_uri()}", out.getvalue())
+
     @patch("ingest.documents.MAX_TEXT_CHARS", 5)
     def test_shared_text_limit_retains_source_specific_error(self):
         page = MagicMock()

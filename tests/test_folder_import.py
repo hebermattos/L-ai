@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from ingest.cli import list_urls, parse_args, run
+from ingest.cli import list_urls, parse_args, prepare_inputs, run
 from ingest.documents import DocumentError
 from ingest.folder import discover_import_folder
 
@@ -43,6 +43,19 @@ class FolderImportTests(TestCase):
             self.assertEqual(documents, [])
             self.assertEqual(direct, ["https://example.org/direct"])
             self.assertEqual(recursive, ["https://example.org/docs/index"])
+
+    @patch("ingest.cli.read_url_lines", return_value=["https://example.org/manual"])
+    def test_cli_manifest_is_read_once_for_crawl(self, read_manifest):
+        with TemporaryDirectory() as temp:
+            manifest = Path(temp) / "manual.txt"
+            manifest.touch()
+            args = parse_args([
+                "--urls-file", str(manifest), "--crawl", "--allow-domain", "example.org",
+            ])
+            plan = prepare_inputs(args)
+        read_manifest.assert_called_once_with(manifest)
+        self.assertEqual(plan.urls, ["https://example.org/manual"])
+        self.assertEqual(plan.crawl_targets, set(plan.urls))
 
     @patch("ingest.cli.crawl")
     @patch("ingest.cli.extract_markdown", return_value=("Example", "Some content " * 12))

@@ -109,15 +109,18 @@ def read_document(path: Path, ocr: bool = False) -> ExtractedDocument:
         if size > MAX_PDF_BYTES:
             raise DocumentError("PDF exceeds 30 MiB")
         import fitz
-        with fitz.open(path) as doc:
-            if doc.needs_pass:
-                raise DocumentError("Password-protected PDF is unsupported")
-            if doc.page_count > MAX_PAGES:
-                raise DocumentError("PDF has too many pages")
-            meta = doc.metadata or {}
-            title = (meta.get("title") or path.stem).strip()
-            author = (meta.get("author") or "").strip()
-            body = extract_pdf_body(doc, ocr=ocr)
+        try:
+            with fitz.open(path) as doc:
+                if doc.needs_pass:
+                    raise DocumentError("Password-protected PDF is unsupported")
+                if doc.page_count > MAX_PAGES:
+                    raise DocumentError("PDF has too many pages")
+                meta = doc.metadata or {}
+                title = (meta.get("title") or path.stem).strip()
+                author = (meta.get("author") or "").strip()
+                body = extract_pdf_body(doc, ocr=ocr)
+        except RuntimeError as exc:
+            raise DocumentError("Unable to read PDF") from exc
     elif path.suffix.lower() == ".epub":
         if size > MAX_EPUB_BYTES:
             raise DocumentError("EPUB exceeds 20 MiB")
